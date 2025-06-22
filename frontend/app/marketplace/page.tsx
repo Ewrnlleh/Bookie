@@ -123,8 +123,29 @@ export default function MarketplacePage() {
       const { buildPurchaseTransaction } = await import("@/services/soroban")
       const txXdr = await buildPurchaseTransaction(publicKey, asset.id, asset.price)
 
-      const { hash } = await signAndSubmitTransaction(txXdr)
-      setPurchaseState((prev) => ({ ...prev, txHash: hash }))
+      // Sign and submit the transaction using wallet context
+      const result = await signAndSubmitTransaction(txXdr)
+      
+      // Track the purchase to vault if successful
+      if (result.hash && !result.hash.startsWith('dev_')) {
+        const { saveUserPurchase } = await import("@/services/soroban")
+        const purchase = {
+          id: `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          assetId: asset.id,
+          title: asset.title,
+          description: asset.description,
+          dataType: asset.dataType,
+          price: asset.price,
+          txHash: result.hash,
+          purchaseDate: new Date().toISOString(),
+          size: asset.size,
+          seller: asset.seller
+        }
+        saveUserPurchase(publicKey, purchase)
+        console.log('🎉 Purchase saved to vault:', purchase)
+      }
+      
+      setPurchaseState((prev) => ({ ...prev, txHash: result.hash }))
 
       toast({
         title: "Purchase Initiated",

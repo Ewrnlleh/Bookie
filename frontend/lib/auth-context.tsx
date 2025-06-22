@@ -90,6 +90,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("WebAuthn is not supported in this browser")
       }
 
+      // Check platform authenticator availability
+      if (typeof PublicKeyCredential !== 'undefined' && 
+          PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+        const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        if (!isAvailable) {
+          throw new Error("No platform authenticator available. Please ensure you have biometric authentication set up on your device.")
+        }
+      }
+
       const challenge = crypto.getRandomValues(new Uint8Array(32))
 
       const options: CredentialCreationOptions = {
@@ -109,11 +118,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             { type: "public-key", alg: -257 }, // RS256
           ],
           timeout: 60000,
-          attestation: "direct",
+          attestation: "none", // Changed from "direct" to "none" for better compatibility
           authenticatorSelection: {
             authenticatorAttachment: "platform",
-            requireResidentKey: true,
-            userVerification: "required",
+            requireResidentKey: false, // Changed from true to false for better compatibility
+            userVerification: "preferred", // Changed from "required" to "preferred"
           },
         },
       }
@@ -159,12 +168,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error("Authentication error:", error)
       setState({ isAuthenticated: false, loading: false })
+      
+      let errorMessage = "Failed to authenticate with Passkey"
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = "Authentication was cancelled or not allowed. Please try again."
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage = "Passkey authentication is not supported on this device."
+        } else if (error.name === 'SecurityError') {
+          errorMessage = "Security error occurred. Please ensure you're on a secure connection."
+        } else if (error.name === 'InvalidStateError') {
+          errorMessage = "Invalid state. The authenticator may already be registered."
+        } else if (error.message.includes('platform authenticator')) {
+          errorMessage = "No biometric authentication found. Please set up Touch ID, Face ID, or Windows Hello."
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
       toast({
         title: "Authentication Failed",
-        description: error instanceof Error ? error.message : "Failed to authenticate with Passkey",
+        description: errorMessage,
         variant: "destructive",
       })
-      throw error
+      throw new Error(errorMessage)
     }
   }
 

@@ -29,11 +29,12 @@ function isValidContractId(contractId: string): boolean {
 // Enhanced development mode check with contract ID validation
 const contractIdIsValid = isValidContractId(contractId)
 const forceRealTransactions = process.env.NEXT_PUBLIC_FORCE_REAL_TRANSACTIONS === 'true'
-const isDevelopment = !forceRealTransactions && (
+// Development mode if contract ID is invalid/placeholder, regardless of force flag
+const isDevelopment = (
   process.env.NODE_ENV === 'development' || 
   contractId === "YOUR_CONTRACT_ID" || 
   !contractIdIsValid
-)
+) || (!forceRealTransactions)
 
 // Debug logging for development mode detection
 if (isBrowser) {
@@ -855,6 +856,90 @@ export async function buildPurchaseTransaction(
   }
 }
 
+// Purchase tracking for vault integration
+interface UserPurchase {
+  id: string;
+  assetId: string;
+  title: string;
+  description: string;
+  dataType: string;
+  price: number;
+  txHash: string;
+  purchaseDate: string;
+  size: string;
+  seller: string;
+}
+
+// Get user purchases from localStorage
+export function getUserPurchases(userAddress: string): UserPurchase[] {
+  if (!isBrowser) return [];
+  
+  try {
+    const key = `bookie_purchases_${userAddress}`;
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error loading user purchases:', error);
+    return [];
+  }
+}
+
+// Save user purchase to localStorage
+export function saveUserPurchase(userAddress: string, purchase: UserPurchase): void {
+  if (!isBrowser) return;
+  
+  try {
+    const key = `bookie_purchases_${userAddress}`;
+    const purchases = getUserPurchases(userAddress);
+    purchases.push(purchase);
+    localStorage.setItem(key, JSON.stringify(purchases));
+    console.log('✅ Purchase saved to vault:', purchase);
+  } catch (error) {
+    console.error('Error saving user purchase:', error);
+  }
+}
+
+// Enhanced purchase function that tracks to vault
+export async function executePurchaseAndTrack(
+  buyerAddress: string,
+  asset: { id: string; title: string; description: string; dataType: string; price: number; size: string; seller: string },
+  signedTxXdr: string
+): Promise<{ hash: string; status: string }> {
+  console.log('🛒 Executing purchase and tracking to vault...', {
+    buyer: buyerAddress.substring(0, 10) + '...',
+    asset: asset.title,
+    price: asset.price
+  });
+
+  // Submit the transaction
+  const result = await submitSignedTransaction(signedTxXdr);
+  
+  // If successful, track the purchase
+  if (result.hash && result.status !== 'FAILED') {
+    const purchase: UserPurchase = {
+      id: `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      assetId: asset.id,
+      title: asset.title,
+      description: asset.description,
+      dataType: asset.dataType,
+      price: asset.price,
+      txHash: result.hash,
+      purchaseDate: new Date().toISOString(),
+      size: asset.size,
+      seller: asset.seller
+    };
+    
+    saveUserPurchase(buyerAddress, purchase);
+    
+    console.log('🎉 Purchase completed and saved to vault!', {
+      txHash: result.hash,
+      purchaseId: purchase.id
+    });
+  }
+  
+  return result;
+}
+
 // Network diagnostics helper
 export async function diagnosticsNetworkHealth(): Promise<{
   rpcUrl: string;
@@ -863,8 +948,9 @@ export async function diagnosticsNetworkHealth(): Promise<{
   error?: string;
 }> {
   try {
-    // Use getLatestLedger which is a valid Soroban RPC method
-    const ledgerInfo = await sorobanRpc("getLatestLedger", []);
+    // Use the Stellar SDK client method instead of raw RPC call
+    const client = getClient();
+    const ledgerInfo = await client.getLatestLedger();
     return {
       rpcUrl,
       isHealthy: true,

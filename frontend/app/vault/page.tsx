@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useWallet } from "@/lib/wallet-context"
 import { Database, Download, Eye, Trash2, Calendar, DollarSign } from "lucide-react"
 import { formatPublicKey } from "@/lib/utils"
+import { getUserPurchases } from "@/services/soroban"
 
 interface VaultItem {
   id: string
@@ -19,9 +20,11 @@ interface VaultItem {
   date: string
   size: string
   earnings?: number
+  txHash?: string
 }
 
-const mockVaultItems: VaultItem[] = [
+// Mock data for items user has listed/sold
+const mockListedSoldItems: VaultItem[] = [
   {
     id: "1",
     title: "My Browsing History - Q4 2023",
@@ -34,7 +37,7 @@ const mockVaultItems: VaultItem[] = [
     earnings: 97.5, // After 2.5% platform fee
   },
   {
-    id: "2",
+    id: "2", 
     title: "Fitness Data - 2023",
     description: "Complete year of fitness tracking data",
     dataType: "fitness",
@@ -43,24 +46,42 @@ const mockVaultItems: VaultItem[] = [
     date: "2024-01-08",
     size: "3.2 MB",
   },
-  {
-    id: "3",
-    title: "E-commerce Shopping Patterns",
-    description: "Purchased data set about shopping behavior analysis",
-    dataType: "shopping",
-    status: "purchased",
-    date: "2024-01-05",
-    size: "2.1 MB",
-  },
 ]
 
 export default function VaultPage() {
   const { isConnected, publicKey } = useWallet()
-  const [vaultItems] = useState<VaultItem[]>(mockVaultItems)
+  const [vaultItems, setVaultItems] = useState<VaultItem[]>([])
+  const [purchasedItems, setPurchasedItems] = useState<VaultItem[]>([])
+
+  useEffect(() => {
+    if (isConnected && publicKey) {
+      // Load user's actual purchases from localStorage
+      const userPurchases = getUserPurchases(publicKey)
+      const purchasedVaultItems = userPurchases.map(purchase => ({
+        id: purchase.id,
+        title: purchase.title,
+        description: purchase.description,
+        dataType: purchase.dataType,
+        price: purchase.price,
+        status: "purchased" as const,
+        date: purchase.purchaseDate,
+        size: purchase.size,
+        txHash: purchase.txHash
+      }))
+      setPurchasedItems(purchasedVaultItems)
+      
+      // Combine with mock listed/sold items
+      setVaultItems([...mockListedSoldItems, ...purchasedVaultItems])
+      
+      console.log('📦 Loaded vault items:', {
+        purchased: purchasedVaultItems.length,
+        total: mockListedSoldItems.length + purchasedVaultItems.length
+      })
+    }
+  }, [isConnected, publicKey])
 
   const listedItems = vaultItems.filter((item) => item.status === "listed")
   const soldItems = vaultItems.filter((item) => item.status === "sold")
-  const purchasedItems = vaultItems.filter((item) => item.status === "purchased")
 
   const totalEarnings = soldItems.reduce((sum, item) => sum + (item.earnings || 0), 0)
 
@@ -288,11 +309,45 @@ export default function VaultPage() {
                       <Database className="w-4 h-4" />
                       {item.size}
                     </div>
+                    {item.price && (
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="w-4 h-4" />
+                        {item.price} XLM
+                      </div>
+                    )}
                   </div>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Data
-                  </Button>
+                  {item.txHash && (
+                    <div className="mb-4">
+                      <div className="text-sm text-gray-600 mb-2">Transaction Hash:</div>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all flex-1">
+                          {formatPublicKey(item.txHash)}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (item.txHash && !item.txHash.startsWith('dev_')) {
+                              window.open(`https://stellar.expert/explorer/testnet/tx/${item.txHash}`, '_blank')
+                            }
+                          }}
+                          disabled={item.txHash?.startsWith('dev_')}
+                        >
+                          {item.txHash?.startsWith('dev_') ? 'Mock Tx' : 'View Tx'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Data
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Eye className="w-4 h-4 mr-2" />
+                      Preview
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}

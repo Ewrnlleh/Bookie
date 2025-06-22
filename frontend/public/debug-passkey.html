@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passkey Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button { padding: 10px 20px; margin: 10px 0; font-size: 16px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Passkey Authentication Debug</h1>
+    
+    <div id="support-status"></div>
+    <div id="debug-info"></div>
+    
+    <button onclick="checkSupport()">Check WebAuthn Support</button>
+    <button onclick="testAuthentication()">Test Passkey Authentication</button>
+    
+    <h3>Debug Log:</h3>
+    <pre id="log"></pre>
+
+    <script>
+        function log(message) {
+            const timestamp = new Date().toISOString();
+            const logElement = document.getElementById('log');
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('support-status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function checkSupport() {
+            log('Checking WebAuthn support...');
+            
+            const checks = {
+                'navigator.credentials': !!navigator.credentials,
+                'PublicKeyCredential': typeof PublicKeyCredential !== 'undefined',
+                'PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable': 
+                    typeof PublicKeyCredential !== 'undefined' && 
+                    typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function',
+                'crypto.getRandomValues': !!crypto.getRandomValues,
+                'Uint8Array': typeof Uint8Array !== 'undefined',
+                'TextEncoder': typeof TextEncoder !== 'undefined',
+                'Buffer': typeof Buffer !== 'undefined'
+            };
+
+            let allSupported = true;
+            let resultHtml = '<h3>Support Check Results:</h3><ul>';
+            
+            for (const [feature, supported] of Object.entries(checks)) {
+                const status = supported ? '✅' : '❌';
+                resultHtml += `<li>${status} ${feature}: ${supported}</li>`;
+                log(`${feature}: ${supported}`);
+                if (!supported) allSupported = false;
+            }
+            
+            resultHtml += '</ul>';
+            document.getElementById('debug-info').innerHTML = resultHtml;
+            
+            if (allSupported) {
+                showStatus('WebAuthn is fully supported!', 'success');
+                log('All WebAuthn features are supported');
+            } else {
+                showStatus('Some WebAuthn features are missing', 'error');
+                log('Some required features are missing');
+            }
+
+            // Additional platform check
+            if (typeof PublicKeyCredential !== 'undefined' && 
+                PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+                PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+                    .then(available => {
+                        log(`Platform authenticator available: ${available}`);
+                        if (available) {
+                            showStatus('WebAuthn supported with platform authenticator', 'success');
+                        } else {
+                            showStatus('WebAuthn supported but no platform authenticator', 'error');
+                        }
+                    })
+                    .catch(err => {
+                        log(`Error checking platform authenticator: ${err.message}`);
+                    });
+            }
+        }
+
+        async function testAuthentication() {
+            log('Starting passkey authentication test...');
+            
+            try {
+                if (!navigator.credentials) {
+                    throw new Error('WebAuthn is not supported in this browser');
+                }
+
+                const challenge = crypto.getRandomValues(new Uint8Array(32));
+                log('Generated challenge');
+
+                const options = {
+                    publicKey: {
+                        challenge,
+                        rp: {
+                            name: "Bookie Marketplace",
+                            id: window.location.hostname,
+                        },
+                        user: {
+                            id: crypto.getRandomValues(new Uint8Array(16)),
+                            name: "user@example.com",
+                            displayName: "Bookie User",
+                        },
+                        pubKeyCredParams: [
+                            { type: "public-key", alg: -7 }, // ES256
+                            { type: "public-key", alg: -257 }, // RS256
+                        ],
+                        timeout: 60000,
+                        attestation: "direct",
+                        authenticatorSelection: {
+                            authenticatorAttachment: "platform",
+                            requireResidentKey: true,
+                            userVerification: "required",
+                        },
+                    },
+                };
+
+                log('Created credential options');
+                log(`RP ID: ${options.publicKey.rp.id}`);
+                log(`Challenge length: ${options.publicKey.challenge.length}`);
+
+                showStatus('Creating passkey credential...', 'info');
+                
+                const credential = await navigator.credentials.create(options);
+                
+                if (!credential || !(credential instanceof PublicKeyCredential)) {
+                    throw new Error('Failed to create credential');
+                }
+
+                log('Credential created successfully!');
+                log(`Credential ID: ${credential.id}`);
+                log(`Credential type: ${credential.type}`);
+
+                const response = credential.response;
+                log(`Response type: ${response.constructor.name}`);
+
+                if (response.getPublicKey) {
+                    const publicKey = response.getPublicKey();
+                    log(`Public key length: ${publicKey ? publicKey.byteLength : 'null'}`);
+                }
+
+                showStatus('Passkey authentication successful!', 'success');
+                log('Authentication test completed successfully');
+                
+            } catch (error) {
+                log(`Authentication failed: ${error.message}`);
+                log(`Error name: ${error.name}`);
+                log(`Error stack: ${error.stack}`);
+                showStatus(`Authentication failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Run initial check
+        window.addEventListener('load', () => {
+            log('Page loaded, running initial checks...');
+            checkSupport();
+        });
+    </script>
+</body>
+</html>

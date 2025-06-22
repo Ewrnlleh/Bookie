@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Purchase Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🛒 Bookie Purchase Flow Test</h1>
+    
+    <div class="step info">
+        <h3>🔧 Current Configuration</h3>
+        <ul>
+            <li><strong>FORCE_REAL_TRANSACTIONS:</strong> true</li>
+            <li><strong>CONTRACT_ID:</strong> YOUR_CONTRACT_ID</li>
+            <li><strong>Mode:</strong> Development (Mock Transactions)</li>
+            <li><strong>Result:</strong> Safe testing without spending real XLM</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3>📋 Test Scenario</h3>
+        <p>We'll simulate the complete purchase flow that happens when a user:</p>
+        <ol>
+            <li>Connects their Freighter wallet</li>
+            <li>Browses the marketplace</li>
+            <li>Clicks "Purchase" on a data asset</li>
+            <li>Signs the transaction</li>
+            <li>Views their purchase in the vault</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>🚀 How to Test</h3>
+        <ol>
+            <li><strong>Open Marketplace:</strong> <a href="http://localhost:3000/marketplace" target="_blank">http://localhost:3000/marketplace</a></li>
+            <li><strong>Connect Wallet:</strong> Click "Connect Wallet" and connect Freighter</li>
+            <li><strong>Try Purchase:</strong> Click "Buy Now" on any data asset</li>
+            <li><strong>Sign Transaction:</strong> Freighter will show a mock transaction - sign it</li>
+            <li><strong>Check Vault:</strong> <a href="http://localhost:3000/vault" target="_blank">http://localhost:3000/vault</a> - your purchase should appear</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h3>✅ Expected Behavior</h3>
+        <ul>
+            <li><strong>Mock Transaction:</strong> Hash will start with "dev_"</li>
+            <li><strong>No XLM Spent:</strong> Your wallet balance won't change</li>
+            <li><strong>Vault Updated:</strong> Purchase appears in "Purchased" tab</li>
+            <li><strong>Transaction Link:</strong> Shows "Mock Tx" (not clickable)</li>
+        </ul>
+    </div>
+
+    <div class="step success">
+        <h3>🎯 Success Indicators</h3>
+        <ul>
+            <li>✅ Purchase completes without errors</li>
+            <li>✅ Success toast appears: "Purchase Initiated"</li>
+            <li>✅ Item appears in vault with mock transaction hash</li>
+            <li>✅ No real XLM is deducted from wallet</li>
+        </ul>
+    </div>
+
+    <div class="step">
+        <h3>🔄 When Ready for Production</h3>
+        <p>To enable real transactions with a deployed contract:</p>
+        <pre>
+# 1. Deploy the Soroban contract
+cd /Users/can/Desktop/bookie001/contracts/bookie
+./deploy_ready.sh
+
+# 2. Update environment variables
+# In frontend/.env.local:
+NEXT_PUBLIC_BOOKIE_CONTRACT_ID=&lt;REAL_CONTRACT_ID&gt;
+NEXT_PUBLIC_FORCE_REAL_TRANSACTIONS=true
+
+# 3. Restart the application
+npm run dev
+        </pre>
+    </div>
+
+    <script>
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Purchase Flow Test Page Loaded');
+            console.log('📝 This page explains how to test the purchase functionality');
+            console.log('🔗 Use the links above to test the actual purchase flow');
+        });
+    </script>
+</body>
+</html>
