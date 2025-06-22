@@ -10,9 +10,30 @@ const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://soroban-testn
 const horizonUrl = "https://horizon-testnet.stellar.org"
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015"
 
-// Development mode check - can be overridden with environment variable
+// Helper function to validate contract ID format
+function isValidContractId(contractId: string): boolean {
+  if (!contractId || contractId === "YOUR_CONTRACT_ID") {
+    return false
+  }
+  
+  try {
+    // Try to create a Contract instance to validate the ID format
+    new Contract(contractId)
+    return true
+  } catch (error) {
+    console.warn('Invalid contract ID format:', contractId)
+    return false
+  }
+}
+
+// Enhanced development mode check with contract ID validation
+const contractIdIsValid = isValidContractId(contractId)
 const forceRealTransactions = process.env.NEXT_PUBLIC_FORCE_REAL_TRANSACTIONS === 'true'
-const isDevelopment = !forceRealTransactions && (process.env.NODE_ENV === 'development' || contractId === "YOUR_CONTRACT_ID")
+const isDevelopment = !forceRealTransactions && (
+  process.env.NODE_ENV === 'development' || 
+  contractId === "YOUR_CONTRACT_ID" || 
+  !contractIdIsValid
+)
 
 // Debug logging for development mode detection
 if (isBrowser) {
@@ -21,7 +42,8 @@ if (isBrowser) {
     isDevelopment,
     NODE_ENV: process.env.NODE_ENV,
     contractId: contractId.substring(0, 10) + '...',
-    isPlaceholder: contractId === "YOUR_CONTRACT_ID"
+    isPlaceholder: contractId === "YOUR_CONTRACT_ID",
+    contractIdIsValid
   })
 }
 
