@@ -1,6 +1,45 @@
-# Rust's output directory
-target
+# Dependencies
+node_modules/
+package-lock.json
 
-# Local settings
-.soroban
-.stellar
+# Build outputs
+.next/
+dist/
+build/
+
+# Environment variables
+.env*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Rust/Cargo
+target/
+Cargo.lock
+.cargo/
+
+# Database
+*.db
+*.sqlite
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
