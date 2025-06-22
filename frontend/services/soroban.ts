@@ -1,5 +1,5 @@
 import Server from '@stellar/stellar-sdk'
-import { xdr, contract, Address, nativeToScVal, Contract, Keypair, TransactionBuilder, BASE_FEE, Networks, Account, Operation, Asset } from "@stellar/stellar-sdk"
+import { xdr, contract, Address, nativeToScVal, Contract, Keypair, TransactionBuilder, BASE_FEE, Networks, Account, Operation, Asset, Horizon, Transaction } from "@stellar/stellar-sdk"
 import type { DataAsset } from "@/lib/types"
 import { base64ToUint8Array, uint8ArrayToBase64, concatUint8Arrays } from "@/lib/utils"
 import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
@@ -7,6 +7,7 @@ import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
 const isBrowser = typeof window !== "undefined"
 const contractId = process.env.NEXT_PUBLIC_BOOKIE_CONTRACT_ID || "YOUR_CONTRACT_ID"
 const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://rpc-testnet.stellar.org"
+const horizonUrl = "https://horizon-testnet.stellar.org"
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015"
 
 // Development mode check - can be overridden with environment variable
@@ -180,6 +181,8 @@ async function ensureConnection(): Promise<RpcServer> {
 async function sorobanRpc(method: string, params: any[]) {
   try {
     await ensureConnection();
+    console.log(`Making RPC call: ${method}`, params);
+    
     const response = await fetch(rpcUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -196,10 +199,18 @@ async function sorobanRpc(method: string, params: any[]) {
     }
 
     const json = await response.json();
-    if (json.error) throw new SorobanError(json.error.message);
+    console.log(`RPC response for ${method}:`, json);
+    
+    if (json.error) {
+      console.error(`RPC error for ${method}:`, json.error);
+      throw new SorobanError(`${method} failed: ${json.error.message || JSON.stringify(json.error)}`);
+    }
     return json.result;
   } catch (e) {
     console.error(`Error in ${method}:`, e);
+    if (e instanceof SorobanError) {
+      throw e;
+    }
     throw new SorobanError(e instanceof Error ? e.message : 'Unknown RPC error');
   }
 }
@@ -245,12 +256,68 @@ export async function submitSignedTransaction(signedTxXdr: string) {
     const result = await submitTransaction(signedTxXdr)
     console.log("✅ Real transaction submitted successfully:", result)
     return {
-      hash: result.hash,
-      status: result.status,
+      hash: result.hash || result,
+      status: result.status || 'PENDING',
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error submitting transaction'
-    throw new SorobanError(`Transaction submission failed: ${message}`)
+    console.warn("❌ Soroban submission failed, trying Horizon fallback:", error);
+    
+    // Try submitting via Horizon as fallback for simple Stellar transactions
+    try {
+      const horizonServer = new Horizon.Server(horizonUrl);
+      
+      // Parse the transaction to check for Soroban operations
+      const envelope = xdr.TransactionEnvelope.fromXDR(signedTxXdr, 'base64');
+      let transaction;
+      
+      // Get the transaction from the envelope
+      if (envelope.switch() === xdr.EnvelopeType.envelopeTypeTx()) {
+        transaction = envelope.v1().tx();
+      } else if (envelope.switch() === xdr.EnvelopeType.envelopeTypeTxV0()) {
+        transaction = envelope.v0().tx();
+      } else {
+        throw new Error("Unsupported transaction envelope type");
+      }
+      
+      // Check if this is a simple Stellar transaction (no Soroban operations)
+      const ops = transaction.operations();
+      const hasSorobanOps = ops.some((op: any) => 
+        op.body().switch() === xdr.OperationType.invokeHostFunction() ||
+        op.body().switch() === xdr.OperationType.restoreFootprint() ||
+        op.body().switch() === xdr.OperationType.extendFootprintTtl()
+      );
+      
+      if (!hasSorobanOps) {
+        console.log("🔄 Attempting Horizon submission for non-Soroban transaction");
+        // Use the correct Horizon method for XDR submission
+        const horizonResult = await fetch(`${horizonUrl}/transactions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `tx=${encodeURIComponent(signedTxXdr)}`
+        });
+        
+        if (!horizonResult.ok) {
+          throw new Error(`Horizon HTTP error: ${horizonResult.status} ${horizonResult.statusText}`);
+        }
+        
+        const horizonResponse = await horizonResult.json();
+        console.log("✅ Horizon submission successful:", horizonResponse);
+        return {
+          hash: horizonResponse.hash,
+          status: 'SUCCESS',
+        };
+      } else {
+        console.log("❌ Transaction contains Soroban operations, cannot use Horizon fallback");
+        throw error;
+      }
+    } catch (horizonError) {
+      console.error("❌ Horizon fallback also failed:", horizonError);
+      const originalMessage = error instanceof Error ? error.message : 'Unknown error submitting transaction';
+      const horizonMessage = horizonError instanceof Error ? horizonError.message : 'Unknown Horizon error';
+      throw new SorobanError(`Transaction submission failed via both Soroban (${originalMessage}) and Horizon (${horizonMessage})`);
+    }
   }
 }
 
@@ -303,7 +370,7 @@ async function simulateTransaction(txXdr: string, maxRetries = 3) {
   let lastError;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const result = await sorobanRpc("simulateTransaction", [{ transactionXdr: txXdr }]);
+      const result = await sorobanRpc("simulateTransaction", [{ transaction: txXdr }]);
       if (!result?.transaction) {
         throw new SimulationError("Invalid simulation result");
       }
@@ -320,8 +387,12 @@ async function simulateTransaction(txXdr: string, maxRetries = 3) {
 
 async function submitTransaction(signedTxXdr: string) {
   try {
+    console.log('Submitting transaction XDR:', signedTxXdr.substring(0, 100) + '...');
+    
     // Validate transaction XDR before submission
     const envelope = xdr.TransactionEnvelope.fromXDR(signedTxXdr, 'base64');
+    console.log('Transaction envelope type:', envelope.switch());
+    
     // Check signatures property for all envelope types
     let signatures: any[] = [];
     if (envelope.switch() === xdr.EnvelopeType.envelopeTypeTxV0()) {
@@ -331,17 +402,37 @@ async function submitTransaction(signedTxXdr: string) {
     } else if (envelope.switch() === xdr.EnvelopeType.envelopeTypeTxFeeBump()) {
       signatures = envelope.feeBump().signatures();
     }
+    
+    console.log('Transaction signatures count:', signatures.length);
     if (!signatures.length) {
       throw new TransactionError("Transaction has no signatures");
     }
 
-    const result = await sorobanRpc("sendTransaction", [{ transactionXdr: signedTxXdr }]);
-    if (!result?.hash) {
-      throw new TransactionError("Invalid transaction response");
+    // Submit to Soroban RPC - correct format with transaction object
+    const result = await sorobanRpc("sendTransaction", [{ transaction: signedTxXdr }]);
+    console.log('Soroban sendTransaction result:', result);
+    
+    if (!result) {
+      throw new TransactionError("No response from sendTransaction");
     }
     
-    return result;
+    // Handle different response formats
+    if (typeof result === 'string') {
+      // Simple hash response
+      return { hash: result };
+    } else if (result.hash) {
+      // Object with hash property
+      return result;
+    } else if (result.status) {
+      // Response with status
+      return result;
+    } else {
+      console.error('Unexpected sendTransaction response format:', result);
+      throw new TransactionError(`Unexpected response format: ${JSON.stringify(result)}`);
+    }
+    
   } catch (error) {
+    console.error('Transaction submission error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new TransactionError(`Transaction submission failed: ${message}`);
   }

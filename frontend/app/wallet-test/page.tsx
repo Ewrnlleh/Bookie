@@ -67,26 +67,36 @@ export default function WalletTestPage() {
       // Create a simple transaction using the connected account
       const StellarSdk = await import('@stellar/stellar-sdk')
       
-      // Create a mock destination account
-      const destinationKeypair = StellarSdk.Keypair.random()
+      // Create testnet server to fetch real account data
+      const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org')
       
-      // For testing, use a mock account with sequence number 0
-      const account = new StellarSdk.Account(address, '0')
-      
-      const transaction = new StellarSdk.TransactionBuilder(account, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: 'Test SDF Network ; September 2015',
-      })
-      .addOperation(StellarSdk.Operation.payment({
-        destination: destinationKeypair.publicKey(),
-        asset: StellarSdk.Asset.native(),
-        amount: '1',
-      }))
-      .setTimeout(300)
-      .build()
-      
-      console.log('Created transaction XDR:', transaction.toXDR())
-      return transaction.toXDR()
+      try {
+        // Fetch the actual account from the network
+        const accountResponse = await server.loadAccount(address)
+        console.log('Account sequence:', accountResponse.sequenceNumber())
+        
+        // Create a mock destination account
+        const destinationKeypair = StellarSdk.Keypair.random()
+        
+        const transaction = new StellarSdk.TransactionBuilder(accountResponse, {
+          fee: StellarSdk.BASE_FEE,
+          networkPassphrase: StellarSdk.Networks.TESTNET,
+        })
+        .addOperation(StellarSdk.Operation.payment({
+          destination: destinationKeypair.publicKey(),
+          asset: StellarSdk.Asset.native(),
+          amount: '0.0000001', // Very small amount for testing
+        }))
+        .setTimeout(300)
+        .build()
+        
+        console.log('Created transaction XDR:', transaction.toXDR())
+        return transaction.toXDR()
+      } catch (accountError) {
+        console.error('Account not found or error fetching account:', accountError)
+        // If account doesn't exist, throw a more helpful error
+        throw new Error(`Account ${address} not found on testnet. Please fund the account first using the Stellar Laboratory: https://laboratory.stellar.org/#account-creator?network=test`)
+      }
     } catch (error) {
       console.error('Error creating transaction:', error)
       throw error
