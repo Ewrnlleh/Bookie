@@ -8,13 +8,20 @@ import { Separator } from "@/components/ui/separator"
 import { WalletConnect } from "@/components/wallet-connect"
 import { useWallet } from "@/lib/wallet-context"
 import { useToast } from "@/hooks/use-toast"
-import { Copy, ExternalLink, Wallet, Key, Chrome } from "lucide-react"
+import { Copy, ExternalLink, Wallet, Key, Chrome, Network, Zap, AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
 import { formatPublicKey } from "@/lib/utils"
 
 export default function WalletTestPage() {
   const { isConnected, publicKey, walletType, signAndSubmitTransaction } = useWallet()
   const { toast } = useToast()
   const [isTestingTx, setIsTestingTx] = useState(false)
+  const [networkHealth, setNetworkHealth] = useState<{
+    isChecking: boolean;
+    isHealthy?: boolean;
+    rpcUrl?: string;
+    latestLedger?: number;
+    error?: string;
+  }>({ isChecking: false })
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -22,6 +29,42 @@ export default function WalletTestPage() {
       title: "Copied!",
       description: "Address copied to clipboard",
     })
+  }
+
+  const checkNetworkHealth = async () => {
+    setNetworkHealth({ isChecking: true })
+    
+    try {
+      const { diagnosticsNetworkHealth } = await import("@/services/soroban")
+      const health = await diagnosticsNetworkHealth()
+      setNetworkHealth({
+        isChecking: false,
+        isHealthy: health.isHealthy,
+        rpcUrl: health.rpcUrl,
+        latestLedger: health.latestLedger,
+        error: health.error
+      })
+      
+      if (health.isHealthy) {
+        toast({
+          title: "Network Status",
+          description: `Soroban network is healthy. Latest ledger: ${health.latestLedger}`,
+        })
+      } else {
+        toast({
+          title: "Network Issue",
+          description: health.error || "Unable to connect to Soroban network",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Network health check failed:", error)
+      setNetworkHealth({
+        isChecking: false,
+        isHealthy: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      })
+    }
   }
 
   const testTransaction = async () => {
@@ -185,6 +228,83 @@ export default function WalletTestPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Network Diagnostics Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Network className="h-5 w-5" />
+              Network Diagnostics
+            </CardTitle>
+            <CardDescription>
+              Check Soroban network connectivity and status
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={checkNetworkHealth}
+              disabled={networkHealth.isChecking}
+              variant="outline"
+              className="w-full"
+            >
+              {networkHealth.isChecking ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Checking Network...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Check Network Health
+                </>
+              )}
+            </Button>
+            
+            {networkHealth.rpcUrl && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {networkHealth.isHealthy ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                  )}
+                  <span className="text-sm font-medium">
+                    Network Status: {networkHealth.isHealthy ? 'Healthy' : 'Issues Detected'}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="font-medium text-muted-foreground">RPC URL:</label>
+                    <div className="font-mono bg-muted p-2 rounded mt-1 break-all">
+                      {networkHealth.rpcUrl}
+                    </div>
+                  </div>
+                  
+                  {networkHealth.latestLedger && (
+                    <div>
+                      <label className="font-medium text-muted-foreground">Latest Ledger:</label>
+                      <div className="font-mono bg-muted p-2 rounded mt-1">
+                        {networkHealth.latestLedger.toLocaleString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {networkHealth.error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Network Error</p>
+                        <p className="text-sm text-red-700 mt-1">{networkHealth.error}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
 
         {/* Transaction Test Section */}
         {isConnected && (

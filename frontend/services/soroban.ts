@@ -6,7 +6,7 @@ import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
 
 const isBrowser = typeof window !== "undefined"
 const contractId = process.env.NEXT_PUBLIC_BOOKIE_CONTRACT_ID || "YOUR_CONTRACT_ID"
-const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://rpc-testnet.stellar.org"
+const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org"
 const horizonUrl = "https://horizon-testnet.stellar.org"
 const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015"
 
@@ -203,7 +203,29 @@ async function sorobanRpc(method: string, params: any[]) {
     
     if (json.error) {
       console.error(`RPC error for ${method}:`, json.error);
-      throw new SorobanError(`${method} failed: ${json.error.message || JSON.stringify(json.error)}`);
+      
+      // Handle specific Soroban error codes
+      let errorMessage = json.error.message || JSON.stringify(json.error);
+      if (json.error.code) {
+        switch (json.error.code) {
+          case -32602:
+            errorMessage = `Invalid parameters for ${method}. Check your transaction format and parameters.`;
+            break;
+          case -32603:
+            errorMessage = `Internal error in ${method}. The RPC server encountered an error processing your request.`;
+            break;
+          case -32700:
+            errorMessage = `Parse error in ${method}. Invalid JSON format.`;
+            break;
+          case -32600:
+            errorMessage = `Invalid request for ${method}. Check the RPC method name and format.`;
+            break;
+          default:
+            errorMessage = `${method} failed with code ${json.error.code}: ${errorMessage}`;
+        }
+      }
+      
+      throw new SorobanError(errorMessage);
     }
     return json.result;
   } catch (e) {
@@ -225,6 +247,15 @@ export async function submitSignedTransaction(signedTxXdr: string) {
   
   if (!signedTxXdr) {
     throw new SorobanError('Transaction submission failed: Empty transaction XDR')
+  }
+  
+  // Validate XDR format before processing
+  try {
+    const envelope = xdr.TransactionEnvelope.fromXDR(signedTxXdr, 'base64');
+    console.log('Transaction XDR validation successful, envelope type:', envelope.switch());
+  } catch (xdrError) {
+    console.error('Invalid transaction XDR format:', xdrError);
+    throw new SorobanError(`Transaction submission failed: Invalid XDR format - ${xdrError instanceof Error ? xdrError.message : 'Unknown XDR error'}`);
   }
   
   // Check if we should mock the transaction submission
@@ -793,5 +824,28 @@ export async function buildPurchaseTransaction(
     }
     
     throw e
+  }
+}
+
+// Network diagnostics helper
+export async function diagnosticsNetworkHealth(): Promise<{
+  rpcUrl: string;
+  isHealthy: boolean;
+  latestLedger?: number;
+  error?: string;
+}> {
+  try {
+    const health = await sorobanRpc("getHealth", []);
+    return {
+      rpcUrl,
+      isHealthy: health.status === "healthy",
+      latestLedger: health.latestLedger,
+    };
+  } catch (error) {
+    return {
+      rpcUrl,
+      isHealthy: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
