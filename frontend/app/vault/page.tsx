@@ -52,8 +52,9 @@ export default function VaultPage() {
   const { isConnected, publicKey } = useWallet()
   const [vaultItems, setVaultItems] = useState<VaultItem[]>([])
   const [purchasedItems, setPurchasedItems] = useState<VaultItem[]>([])
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  useEffect(() => {
+  const loadVaultData = () => {
     if (isConnected && publicKey) {
       // Load user's actual purchases from localStorage
       const userPurchases = getUserPurchases(publicKey)
@@ -75,10 +76,44 @@ export default function VaultPage() {
       
       console.log('📦 Loaded vault items:', {
         purchased: purchasedVaultItems.length,
-        total: mockListedSoldItems.length + purchasedVaultItems.length
+        total: mockListedSoldItems.length + purchasedVaultItems.length,
+        purchases: userPurchases
       })
     }
-  }, [isConnected, publicKey])
+  }
+
+  useEffect(() => {
+    loadVaultData()
+  }, [isConnected, publicKey, refreshKey])
+
+  // Listen for localStorage changes (when purchases are added)
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key?.startsWith('bookie_purchases_')) {
+        console.log('🔄 Storage change detected, refreshing vault...')
+        loadVaultData()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also listen for custom events from same window
+    const handleCustomRefresh = () => {
+      console.log('🔄 Custom refresh triggered')
+      setRefreshKey(prev => prev + 1)
+    }
+    window.addEventListener('vault-refresh', handleCustomRefresh)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('vault-refresh', handleCustomRefresh)
+    }
+  }, [])
+
+  const manualRefresh = () => {
+    console.log('🔄 Manual refresh triggered')
+    setRefreshKey(prev => prev + 1)
+  }
 
   const listedItems = vaultItems.filter((item) => item.status === "listed")
   const soldItems = vaultItems.filter((item) => item.status === "sold")
@@ -126,7 +161,12 @@ export default function VaultPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">My Bookie Vault</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-bold text-gray-900">My Bookie Vault</h1>
+          <Button onClick={manualRefresh} variant="outline" size="sm">
+            🔄 Refresh
+          </Button>
+        </div>
         <p className="text-gray-600 mb-4">Manage your listed data, track earnings, and access purchased data sets.</p>
         <div className="text-sm text-gray-500">
           Connected: {formatPublicKey(publicKey)}

@@ -12,7 +12,7 @@ import { useWallet } from "@/lib/wallet-context"
 import { useAuth } from "@/lib/auth-context" 
 import { useToast } from "@/hooks/use-toast"
 import { Upload, Shield, DollarSign } from "lucide-react"
-import { createDataRequest, signTransactionWithPasskey } from "@/services/soroban"
+import { listDataAsset, signTransactionWithPasskey } from "@/services/soroban"
 
 export default function SellDataPage() {
   const { isConnected, publicKey, signAndSubmitTransaction } = useWallet()
@@ -62,15 +62,23 @@ export default function SellDataPage() {
       // TODO: Implement IPFS upload
       const mockIpfsCid = "Qm..."
       
-      // 2. Create data request transaction
-      const tx = await createDataRequest({
-        requester: publicKey, // Use actual wallet public key
+      // 2. Generate unique asset ID
+      const assetId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      
+      // 3. Create data asset listing transaction
+      const tx = await listDataAsset({
+        seller: publicKey,
+        id: assetId,
+        title: formData.title,
+        description: formData.description,
         dataType: formData.dataType,
         price: parseInt(formData.price),
-        durationDays: 30 // Default duration
+        ipfsCid: mockIpfsCid,
+        encryptionKey: `key_${Date.now()}`, // TODO: Generate proper encryption key
+        size: `${(formData.file.size / 1024 / 1024).toFixed(2)}MB`
       })
 
-      // 3. Sign and submit transaction using wallet
+      // 4. Sign and submit transaction using wallet
       const { hash } = await signAndSubmitTransaction(tx)
 
       toast({

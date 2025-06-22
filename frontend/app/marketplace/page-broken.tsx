@@ -220,6 +220,14 @@ export default function MarketplacePage() {
             >
               <RefreshCw className="h-4 w-4" />
               <span className="ml-1 hidden sm:inline">Refresh</span>
+            </Button>          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleRefresh}
+              className="px-3"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="ml-1 hidden sm:inline">Refresh</span>
             </Button>
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-40">
@@ -238,59 +246,63 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* Asset Grid */}
+        {/* Data Assets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAssets.map((asset) => (
-            <Card key={asset.id} className="h-full">
+            <Card key={asset.id} className="flex flex-col">
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{asset.title}</CardTitle>
+                  <div>
+                    <CardTitle>{asset.title}</CardTitle>
+                    <CardDescription className="mt-2">{asset.description}</CardDescription>
+                  </div>
                   <Badge variant="secondary">{asset.dataType}</Badge>
                 </div>
-                <CardDescription className="line-clamp-3">{asset.description}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4" />
-                  <span className="text-muted-foreground">Seller:</span>
-                  <div className="flex items-center gap-1">
-                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                      {formatPublicKey(asset.seller)}
-                    </code>
+              <CardContent className="flex-1">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <User className="h-4 w-4" />
+                    <span>Seller:</span>
+                    <div className="flex items-center gap-1">
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                        {formatPublicKey(asset.seller)}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-muted"
+                        onClick={() => copyToClipboard(asset.seller)}
+                        title={`Copy full seller ID: ${asset.seller}`}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Database className="h-4 w-4" />
+                    <span>Size: {asset.size}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Listed: {new Date(asset.listedDate).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="text-lg font-semibold">{asset.price} XLM</div>
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-muted"
-                      onClick={() => copyToClipboard(asset.seller)}
-                      title={`Copy full seller ID: ${asset.seller}`}
+                      onClick={() => handlePurchase(asset)}
+                      disabled={purchaseState.assetId === asset.id || !isConnected}
                     >
-                      <Copy className="h-3 w-3" />
+                      {purchaseState.assetId === asset.id ? (
+                        "Processing..."
+                      ) : (
+                        <>
+                          <ShoppingCart className="mr-2 h-4 w-4" />
+                          Purchase
+                        </>
+                      )}
                     </Button>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Database className="h-4 w-4" />
-                  <span>Size: {asset.size}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Listed: {new Date(asset.listedDate).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between items-center mt-4">
-                  <div className="text-lg font-semibold">{asset.price} XLM</div>
-                  <Button
-                    onClick={() => handlePurchase(asset)}
-                    disabled={purchaseState.assetId === asset.id || !isConnected}
-                  >
-                    {purchaseState.assetId === asset.id ? (
-                      "Processing..."
-                    ) : (
-                      <>
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        Purchase
-                      </>
-                    )}
-                  </Button>
                 </div>
               </CardContent>
             </Card>

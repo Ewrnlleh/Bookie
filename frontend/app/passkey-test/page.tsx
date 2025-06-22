@@ -19,7 +19,7 @@ export default function PasskeyTestPage() {
       await authenticate()
       toast({
         title: "Authentication Successful",
-        description: "Passkey authentication completed successfully",
+        description: "Direct authentication completed successfully",
       })
     } catch (error) {
       console.error("Authentication failed:", error)
@@ -60,8 +60,13 @@ export default function PasskeyTestPage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Passkey Authentication Test</h1>
           <p className="text-gray-600">
-            Test passkey authentication using your device's built-in biometric security
+            Direct sign-in enabled (WebAuthn bypassed for development)
           </p>
+          <div className="mt-2">
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+              Development Mode: Direct Authentication
+            </Badge>
+          </div>
         </div>
 
         {/* WebAuthn Support Check */}

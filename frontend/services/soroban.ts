@@ -626,13 +626,51 @@ export async function createDataRequest(params: {
 }) {
   if (!isBrowser) throw new Error("Must be run in browser")
   
+  console.log('🔧 Creating data request with params:', {
+    requester: params.requester.substring(0, 10) + '...',
+    dataType: params.dataType,
+    price: params.price,
+    durationDays: params.durationDays,
+    isDevelopment,
+    contractId: contractId === "YOUR_CONTRACT_ID" ? "PLACEHOLDER" : contractId.substring(0, 10) + '...'
+  })
+  
   // Development mode: return mock transaction XDR
   if (isDevelopment) {
-    console.warn("Development mode: Returning mock transaction for createDataRequest")
-    return "AAAAAgAAAACNlYd30uE/u3+w1JRpqTGpY9qF6xzJlOqG0ky0UXK7vQAAAGQAAOQGAAAACQAAAAEAAAAAAAAAAAAAAAA="
+    console.warn("🔧 Development mode: Returning mock transaction for createDataRequest")
+    console.log("📋 Mock data request created successfully")
+    
+    // Return a valid but simple XDR that can be signed by Freighter
+    // This is a minimal payment transaction that should work
+    try {
+      const { Account, TransactionBuilder, BASE_FEE, Networks, Operation, Asset } = await import('@stellar/stellar-sdk')
+      
+      const account = new Account(params.requester, '0')
+      const transaction = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: Networks.TESTNET,
+      })
+        .addOperation(Operation.payment({
+          destination: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+          asset: Asset.native(),
+          amount: "0.0000001", // Minimal amount
+        }))
+        .setTimeout(300)
+        .build()
+      
+      const txXdr = transaction.toXDR()
+      console.log("✅ Mock transaction XDR created successfully")
+      return txXdr
+    } catch (error: any) {
+      console.error("❌ Error creating mock transaction:", error)
+      throw new Error(`Failed to create mock transaction: ${error.message}`)
+    }
   }
-  
+
+  // Real transaction mode
   try {
+    console.log("🚀 Creating REAL createDataRequest transaction")
+    
     const client = getClient()
     // Use the requester's address for the source account
     const sourceAccount = await client.getAccount(params.requester)
@@ -657,9 +695,19 @@ export async function createDataRequest(params: {
 
     // Return the transaction XDR for signing
     return transaction.toXDR()
-  } catch (e) {
-    console.error("Error creating data request:", e)
-    throw e
+  } catch (e: any) {
+    console.error("❌ Error creating data request:", e)
+    
+    // Provide helpful error messages
+    if (e.message?.includes('account does not exist')) {
+      throw new Error(`Account ${params.requester.substring(0, 10)}... does not exist on Testnet. Please fund it first at https://friendbot.stellar.org`)
+    } else if (e.message?.includes('connection') || e.message?.includes('network')) {
+      throw new Error('Network connection error. Please check your internet connection and try again.')
+    } else if (e.message?.includes('timeout')) {
+      throw new Error('Request timed out. Please try again.')
+    }
+    
+    throw new Error(`Failed to create transaction: ${e.message}`)
   }
 }
 
@@ -894,6 +942,11 @@ export function saveUserPurchase(userAddress: string, purchase: UserPurchase): v
     purchases.push(purchase);
     localStorage.setItem(key, JSON.stringify(purchases));
     console.log('✅ Purchase saved to vault:', purchase);
+    
+    // Trigger vault refresh event
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('vault-refresh'));
+    }
   } catch (error) {
     console.error('Error saving user purchase:', error);
   }
@@ -962,5 +1015,226 @@ export async function diagnosticsNetworkHealth(): Promise<{
       isHealthy: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+}
+
+// Data asset listing functions (for selling data)
+export async function listDataAsset(params: {
+  seller: string
+  id: string
+  title: string
+  description: string
+  dataType: string
+  price: number
+  ipfsCid: string
+  encryptionKey: string
+  size: string
+}) {
+  if (!isBrowser) throw new Error("Must be run in browser")
+  
+  console.log('🔧 Listing data asset with params:', {
+    seller: params.seller.substring(0, 10) + '...',
+    id: params.id,
+    title: params.title,
+    dataType: params.dataType,
+    price: params.price,
+    isDevelopment,
+    contractId: contractId === "YOUR_CONTRACT_ID" ? "PLACEHOLDER" : contractId.substring(0, 10) + '...'
+  })
+  
+  // Development mode: return mock transaction XDR
+  if (isDevelopment) {
+    console.warn("🔧 Development mode: Returning mock transaction for listDataAsset")
+    console.log("📋 Mock data asset listed successfully")
+    
+    // Also save the listing to localStorage for immediate visibility
+    const mockAsset: DataAsset = {
+      id: params.id,
+      title: params.title,
+      description: params.description,
+      dataType: params.dataType,
+      price: params.price,
+      seller: params.seller,
+      ipfsCid: params.ipfsCid,
+      encryptionKey: params.encryptionKey,
+      listedDate: new Date().toISOString(),
+      size: params.size,
+      isActive: true
+    }
+    
+    // Save to localStorage to make it appear in marketplace
+    const existingAssets = getStoredDataAssets()
+    const updatedAssets = [...existingAssets, mockAsset]
+    localStorage.setItem('bookie_data_assets', JSON.stringify(updatedAssets))
+    
+    // Trigger marketplace refresh
+    window.dispatchEvent(new CustomEvent('marketplace-refresh'))
+    
+    // Return a valid but simple XDR that can be signed by Freighter
+    try {
+      const { Account, TransactionBuilder, BASE_FEE, Networks, Operation, Asset } = await import('@stellar/stellar-sdk')
+      
+      const account = new Account(params.seller, '0')
+      const transaction = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: Networks.TESTNET,
+      })
+        .addOperation(Operation.payment({
+          destination: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+          asset: Asset.native(),
+          amount: "0.0000001", // Minimal amount
+        }))
+        .setTimeout(300)
+        .build()
+      
+      const txXdr = transaction.toXDR()
+      console.log("✅ Mock transaction XDR created successfully")
+      return txXdr
+    } catch (error: any) {
+      console.error("❌ Error creating mock transaction:", error)
+      throw new Error(`Failed to create mock transaction: ${error.message}`)
+    }
+  }
+
+  // Real transaction mode
+  try {
+    console.log("🚀 Creating REAL listDataAsset transaction")
+    
+    const client = getClient()
+    const sourceAccount = await client.getAccount(params.seller)
+    
+    // Create contract instance
+    const contractInstance = new Contract(contractId)
+    
+    // Convert parameters to Soroban values
+    const sellerAddr = nativeToScVal(Address.fromString(params.seller))
+    const idVal = nativeToScVal(params.id)
+    const titleVal = nativeToScVal(params.title)
+    const descriptionVal = nativeToScVal(params.description)
+    const dataTypeVal = nativeToScVal(params.dataType)
+    const priceVal = nativeToScVal(params.price, { type: "i128" })
+    const ipfsCidVal = nativeToScVal(params.ipfsCid)
+    const encryptionKeyVal = nativeToScVal(params.encryptionKey)
+    const sizeVal = nativeToScVal(params.size)
+    
+    // Build transaction to call list_data_asset
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: TESTNET_PASSPHRASE,
+    })
+      .addOperation(contractInstance.call(
+        "list_data_asset", 
+        sellerAddr, 
+        idVal, 
+        titleVal, 
+        descriptionVal, 
+        dataTypeVal, 
+        priceVal, 
+        ipfsCidVal, 
+        encryptionKeyVal, 
+        sizeVal
+      ))
+      .setTimeout(30)
+      .build()
+
+    return transaction.toXDR()
+  } catch (e: any) {
+    console.error("❌ Error creating data asset listing:", e)
+    
+    if (e.message?.includes('account does not exist')) {
+      throw new Error(`Account ${params.seller.substring(0, 10)}... does not exist on Testnet. Please fund it first at https://friendbot.stellar.org`)
+    } else if (e.message?.includes('connection') || e.message?.includes('network')) {
+      throw new Error('Network connection error. Please check your internet connection and try again.')
+    } else if (e.message?.includes('timeout')) {
+      throw new Error('Request timed out. Please try again.')
+    }
+    
+    throw new Error(`Failed to create listing transaction: ${e.message}`)
+  }
+}
+
+// Get data assets from marketplace (for buying data)
+export async function getDataAssets(): Promise<DataAsset[]> {
+  if (!isBrowser) return []
+  
+  // For development mode, use localStorage + some default mock data
+  if (isDevelopment) {
+    console.warn("Development mode: Returning stored + mock data for getDataAssets")
+    
+    const storedAssets = getStoredDataAssets()
+    const defaultMockAssets: DataAsset[] = [
+      {
+        id: "mock-1",
+        title: "Sample Health Data",
+        description: "Anonymized health metrics for research",
+        dataType: "health",
+        price: 100,
+        seller: "GDDBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
+        ipfsCid: "QmX123mockCid",
+        encryptionKey: "mock-encryption-key",
+        listedDate: new Date().toISOString(),
+        size: "2.5MB",
+        isActive: true
+      },
+      {
+        id: "mock-2", 
+        title: "Fitness Tracking Data",
+        description: "Daily activity and exercise data",
+        dataType: "health",
+        price: 75,
+        seller: "GBBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
+        ipfsCid: "QmY456mockCid",
+        encryptionKey: "mock-encryption-key-2",
+        listedDate: new Date(Date.now() - 3600000).toISOString(),
+        size: "1.8MB",
+        isActive: true
+      }
+    ]
+    
+    // Combine stored assets with defaults, avoiding duplicates
+    const allAssets = [...defaultMockAssets]
+    storedAssets.forEach(asset => {
+      if (!allAssets.find(a => a.id === asset.id)) {
+        allAssets.push(asset)
+      }
+    })
+    
+    return allAssets
+  }
+
+  // Real contract call mode (TODO: implement when contract is deployed)
+  try {
+    console.log("🚀 Fetching REAL data assets from contract")
+    
+    const client = getClient()
+    const sourceAccount = await client.getAccount("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+    
+    const contractInstance = new Contract(contractId)
+    
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: TESTNET_PASSPHRASE,
+    })
+      .addOperation(contractInstance.call("get_data_assets"))
+      .setTimeout(30)
+      .build()
+    
+    const simulation = await simulateTransaction(transaction.toXDR())
+    const result = await parseContractValue<any[]>(simulation.result.retval)
+    return result.map(parseDataAsset)
+  } catch (e) {
+    console.error("Error fetching data assets:", e)
+    // Fallback to development mode data
+    return getDataAssets()
+  }
+}
+
+// Helper functions for localStorage data assets
+function getStoredDataAssets(): DataAsset[] {
+  try {
+    const stored = localStorage.getItem('bookie_data_assets')
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
   }
 }

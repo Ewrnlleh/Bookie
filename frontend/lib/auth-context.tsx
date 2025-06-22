@@ -4,6 +4,13 @@ import React, { createContext, useContext, useEffect, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { signAndSubmitTransaction } from "@/services/soroban"
 import type { AuthenticationState, PasskeyCredential } from "@/lib/types"
+import { 
+  createPasskey, 
+  authenticateWithPasskey,
+  checkPasskeySupport,
+  webAuthnToStellarPublicKey,
+  isPasskeyEnvironmentReady
+} from "@/lib/passkey-utils"
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -86,105 +93,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setState(prev => ({ ...prev, loading: true }))
     
     try {
-      if (!navigator.credentials) {
-        throw new Error("WebAuthn is not supported in this browser")
+      // Check if environment is ready for passkeys
+      if (!isPasskeyEnvironmentReady()) {
+        throw new Error("Passkey environment not ready. HTTPS required in production.")
       }
 
-      // Check platform authenticator availability
-      if (typeof PublicKeyCredential !== 'undefined' && 
-          PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-        const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-        if (!isAvailable) {
-          throw new Error("No platform authenticator available. Please ensure you have biometric authentication set up on your device.")
+      // Check comprehensive WebAuthn support
+      const support = await checkPasskeySupport()
+      if (!support.isSupported) {
+        throw new Error("WebAuthn passkeys are not supported in this browser")
+      }
+
+      // Try to use existing credential first
+      if (credential?.id) {
+        try {
+          const authResult = await authenticateWithPasskey({ credentialId: credential.id })
+          if (authResult) {
+            setState({ isAuthenticated: true, loading: false })
+            toast({
+              title: "Welcome Back!",
+              description: "Successfully authenticated with existing passkey",
+            })
+            return
+          }
+        } catch (error) {
+          console.log("Existing credential authentication failed, creating new one:", error)
         }
       }
 
-      const challenge = crypto.getRandomValues(new Uint8Array(32))
-
-      const options: CredentialCreationOptions = {
-        publicKey: {
-          challenge,
-          rp: {
-            name: "Bookie Marketplace",
-            id: typeof window !== 'undefined' ? window.location.hostname : "localhost",
-          },
-          user: {
-            id: crypto.getRandomValues(new Uint8Array(16)),
-            name: "user@example.com",
-            displayName: "Bookie User",
-          },
-          pubKeyCredParams: [
-            { type: "public-key", alg: -7 }, // ES256
-            { type: "public-key", alg: -257 }, // RS256
-          ],
-          timeout: 60000,
-          attestation: "none", // Changed from "direct" to "none" for better compatibility
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            requireResidentKey: false, // Changed from true to false for better compatibility
-            userVerification: "preferred", // Changed from "required" to "preferred"
-          },
-        },
-      }
-
-      const newCredential = await navigator.credentials.create(options)
-      if (!newCredential || !(newCredential instanceof PublicKeyCredential)) {
-        throw new Error("Failed to create credential")
-      }
-
-      const response = newCredential.response as AuthenticatorAttestationResponse
-      const credentialId = Buffer.from(newCredential.rawId).toString("base64")
-      const publicKeyBuffer = response.getPublicKey()
+      // Create new passkey credential
+      const newCredential = await createPasskey({
+        username: `user-${Date.now()}@bookie.marketplace`,
+        displayName: "Bookie Marketplace User"
+      })
       
-      if (!publicKeyBuffer) {
-        throw new Error("Failed to get public key from credential")
+      // Convert WebAuthn public key to Stellar format
+      const stellarPublicKey = webAuthnToStellarPublicKey(newCredential.publicKey)
+      
+      const passkeyCredential: PasskeyCredential = {
+        id: newCredential.credentialId,
+        publicKey: stellarPublicKey,
+        userHandle: newCredential.userHandle,
       }
-
-      const mockPublicKey = "GCKFBEIYTKP74Q7EJQLTPVQAETEJ2KGYVUH6EWPXCESR5KZKJXBXZXQX"
-
-      const credentialData: PasskeyCredential = {
-        id: credentialId,
-        publicKey: Buffer.from(publicKeyBuffer).toString("base64"),
-        userHandle: Buffer.from(response.getAuthenticatorData()).toString("base64"),
-      }
-
-      // Save to localStorage with error handling
-      try {
-        localStorage.setItem("auth-state", JSON.stringify({ isAuthenticated: true }))
-        localStorage.setItem("passkey-credential", JSON.stringify(credentialData))
-        localStorage.setItem("public-key", mockPublicKey)
-      } catch (storageError) {
-        console.warn("Failed to save to localStorage:", storageError)
-      }
-
-      setCredential(credentialData)
+      
+      setCredential(passkeyCredential)
+      setPublicKey(stellarPublicKey)
       setState({ isAuthenticated: true, loading: false })
-      setPublicKey(mockPublicKey)
+
+      // Save to localStorage
+      localStorage.setItem("auth-state", JSON.stringify({ isAuthenticated: true }))
+      localStorage.setItem("passkey-credential", JSON.stringify(passkeyCredential))
+      localStorage.setItem("public-key", stellarPublicKey)
 
       toast({
-        title: "Authentication Successful",
-        description: "Successfully authenticated with Passkey",
+        title: "Passkey Created Successfully!",
+        description: "Your biometric authentication is now set up for secure access",
       })
     } catch (error) {
-      console.error("Authentication error:", error)
+      console.error("Passkey authentication error:", error)
       setState({ isAuthenticated: false, loading: false })
       
-      let errorMessage = "Failed to authenticate with Passkey"
-      
+      let errorMessage = "Failed to authenticate with passkey"
       if (error instanceof Error) {
-        if (error.name === 'NotAllowedError') {
-          errorMessage = "Authentication was cancelled or not allowed. Please try again."
-        } else if (error.name === 'NotSupportedError') {
-          errorMessage = "Passkey authentication is not supported on this device."
-        } else if (error.name === 'SecurityError') {
-          errorMessage = "Security error occurred. Please ensure you're on a secure connection."
-        } else if (error.name === 'InvalidStateError') {
-          errorMessage = "Invalid state. The authenticator may already be registered."
-        } else if (error.message.includes('platform authenticator')) {
-          errorMessage = "No biometric authentication found. Please set up Touch ID, Face ID, or Windows Hello."
-        } else {
-          errorMessage = error.message
-        }
+        errorMessage = error.message
       }
       
       toast({
@@ -192,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: errorMessage,
         variant: "destructive",
       })
-      throw new Error(errorMessage)
+      throw error
     }
   }
 
