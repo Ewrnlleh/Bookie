@@ -168,8 +168,8 @@ export class SimulationError extends SorobanError {
 async function ensureConnection(): Promise<RpcServer> {
   const client = getClient();
   try {
-    // Simple health check
-    await client.getHealth();
+    // Simple connectivity check using getLatestLedger
+    await client.getLatestLedger();
     return client;
   } catch (error) {
     sorobanClient = null; // Force reconnection
@@ -527,66 +527,72 @@ function parseDataAsset(value: any): DataAsset {
 export async function listDataRequests(): Promise<DataAsset[]> {
   if (!isBrowser) return []
   
-  // Development mode: return mock data
-  if (isDevelopment) {
-    console.warn("Development mode: Returning mock data for listDataRequests")
-    return [
-      {
-        id: "mock-1",
-        title: "Sample Health Data",
-        description: "Anonymized health metrics for research",
-        dataType: "health",
-        price: 100,
-        seller: "GDDBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
-        ipfsCid: "QmX123mockCid",
-        encryptionKey: "mock-encryption-key",
-        listedDate: new Date().toISOString(),
-        size: "2.5MB",
-        isActive: true
-      },
-      {
-        id: "mock-2", 
-        title: "Fitness Tracking Data",
-        description: "Daily activity and exercise data",
-        dataType: "fitness",
-        price: 50,
-        seller: "GDDBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
-        ipfsCid: "QmY456mockCid",
-        encryptionKey: "mock-encryption-key-2",
-        listedDate: new Date().toISOString(),
-        size: "1.2MB",
-        isActive: true
-      }
-    ]
-  }
-  
-  try {
-    const client = getClient()
-    // For read-only operations, we can use a placeholder account
-    const sourceAccount = await client.getAccount("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
-    
-    // Create contract instance
-    const contractInstance = new Contract(contractId)
-    
-    // Build transaction to call get_requests
-    const transaction = new TransactionBuilder(sourceAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: TESTNET_PASSPHRASE,
-    })
-      .addOperation(contractInstance.call("get_requests"))
-      .setTimeout(30)
-      .build()
-    
-    // Simulate the transaction using our existing method
-    const simulation = await simulateTransaction(transaction.toXDR())
-    
-    // Parse the result
-    const result = await parseContractValue<any[]>(simulation.result.retval)
-    return result.map(parseDataAsset)
-  } catch (e) {
-    console.error("Error fetching data requests:", e)
-    return []
-  }
+  // Always return mock data for now since contract may not be deployed
+  console.warn("Returning mock data for listDataRequests (contract not deployed yet)")
+  return [
+    {
+      id: "mock-1",
+      title: "Sample Health Data",
+      description: "Anonymized health metrics for research",
+      dataType: "health",
+      price: 100,
+      seller: "GDDBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
+      ipfsCid: "QmX123mockCid",
+      encryptionKey: "mock-encryption-key",
+      listedDate: new Date().toISOString(),
+      size: "2.5MB",
+      isActive: true
+    },
+    {
+      id: "mock-2", 
+      title: "Fitness Tracking Data",
+      description: "Daily activity and exercise data",
+      dataType: "fitness",
+      price: 50,
+      seller: "GDDBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
+      ipfsCid: "QmY456mockCid",
+      encryptionKey: "mock-encryption-key-2",
+      listedDate: new Date().toISOString(),
+      size: "1.2MB",
+      isActive: true
+    },
+    {
+      id: "mock-3",
+      title: "IoT Sensor Data",
+      description: "Environmental sensor readings from smart devices",
+      dataType: "iot",
+      price: 75,
+      seller: "GDDBM35WJ7LRB4U3FJYFNH5JDVTPGLSCR7HSD6XV5GTSTQPOIFPDGJCT",
+      ipfsCid: "QmZ789mockCid",
+      encryptionKey: "mock-encryption-key-3",
+      listedDate: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+      size: "5.1MB",
+      isActive: true
+    }
+  ]
+
+  // TODO: Uncomment when contract is deployed and tested
+  // try {
+  //   const client = getClient()
+  //   const sourceAccount = await client.getAccount("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF")
+  //   
+  //   const contractInstance = new Contract(contractId)
+  //   
+  //   const transaction = new TransactionBuilder(sourceAccount, {
+  //     fee: BASE_FEE,
+  //     networkPassphrase: TESTNET_PASSPHRASE,
+  //   })
+  //     .addOperation(contractInstance.call("get_requests"))
+  //     .setTimeout(30)
+  //     .build()
+  //   
+  //   const simulation = await simulateTransaction(transaction.toXDR())
+  //   const result = await parseContractValue<any[]>(simulation.result.retval)
+  //   return result.map(parseDataAsset)
+  // } catch (e) {
+  //   console.error("Error fetching data requests:", e)
+  //   return []
+  // }
 }
 
 export async function createDataRequest(params: {
@@ -835,11 +841,12 @@ export async function diagnosticsNetworkHealth(): Promise<{
   error?: string;
 }> {
   try {
-    const health = await sorobanRpc("getHealth", []);
+    // Use getLatestLedger which is a valid Soroban RPC method
+    const ledgerInfo = await sorobanRpc("getLatestLedger", []);
     return {
       rpcUrl,
-      isHealthy: health.status === "healthy",
-      latestLedger: health.latestLedger,
+      isHealthy: true,
+      latestLedger: ledgerInfo.sequence,
     };
   } catch (error) {
     return {
