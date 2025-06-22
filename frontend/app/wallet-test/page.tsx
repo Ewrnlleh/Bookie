@@ -80,18 +80,47 @@ export default function WalletTestPage() {
     setIsTestingTx(true)
     
     try {
-      // Create a valid Futurenet transaction XDR for testing
-      const mockTxXdr = "AAAAAgAAAACHPYwB3Oej2jJM7fNeji0DQxeywPI8BRXA/tgJTcDsrgAAAGQAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAABoV2Y6AAAAAAAAAAEAAAAAAAAAAQAAAAC/xnpDymHoGznRQJrAJKcP35jR+LUHkQ80NRhkxqYsWQAAAAAAAAAABfXhAAAAAAAAAAAA"
+      // Create a valid transaction with real account data
+      const txXdr = await createValidTransaction()
+      console.log('Created valid transaction XDR for testing')
       
-      const result = await signAndSubmitTransaction(mockTxXdr)
+      const result = await signAndSubmitTransaction(txXdr)
       
       toast({
         title: "Transaction Test Successful!",
-        description: `Mock transaction would have hash: ${result.hash}`,
+        description: `Transaction hash: ${result.hash}`,
       })
     } catch (error) {
       console.error("Transaction test failed:", error)
-      // Don't show error toast, it will be handled by wallet context
+      
+      // Show specific error messages for common issues
+      if (error instanceof Error) {
+        if (error.message.includes('not found on testnet')) {
+          toast({
+            title: "Account Not Funded",
+            description: "Please fund your testnet account first using the Stellar Laboratory",
+            variant: "destructive",
+          })
+        } else if (error.message.includes('invalid parameters')) {
+          toast({
+            title: "Transaction Error", 
+            description: "Invalid transaction parameters. Check your account and network settings.",
+            variant: "destructive",
+          })
+        } else if (error.message.includes('cancelled by user')) {
+          toast({
+            title: "Transaction Cancelled",
+            description: "Transaction was cancelled in wallet",
+            variant: "default",
+          })
+        } else {
+          toast({
+            title: "Transaction Failed",
+            description: error.message,
+            variant: "destructive",
+          })
+        }
+      }
     } finally {
       setIsTestingTx(false)
     }
@@ -224,6 +253,36 @@ export default function WalletTestPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Account Funding Helper */}
+                {publicKey && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-blue-800">Account Funding Required</p>
+                        <p className="text-sm text-blue-700">
+                          To test transactions, your testnet account needs to be funded first.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="mt-2"
+                        >
+                          <a 
+                            href={`https://laboratory.stellar.org/#account-creator?network=test&address=${publicKey}`}
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Fund Account on Stellar Laboratory
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -305,6 +364,7 @@ export default function WalletTestPage() {
               </div>
             )}
           </CardContent>
+        </Card>
 
         {/* Transaction Test Section */}
         {isConnected && (
