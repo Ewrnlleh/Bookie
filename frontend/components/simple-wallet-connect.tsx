@@ -12,7 +12,7 @@ interface SimpleWalletConnectProps {
 }
 
 export function SimpleWalletConnect({ trigger }: SimpleWalletConnectProps) {
-  const { connect, isConnected, publicKey, disconnect } = useWallet()
+  const { connect, isConnected, publicKey, disconnect, network, networkPassphrase } = useWallet()
   const [isConnecting, setIsConnecting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -65,6 +65,11 @@ export function SimpleWalletConnect({ trigger }: SimpleWalletConnectProps) {
                     <p className="text-sm text-muted-foreground">
                       {publicKey.substring(0, 8)}...{publicKey.substring(publicKey.length - 8)}
                     </p>
+                    {network && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        Network: {network}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

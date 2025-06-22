@@ -13,18 +13,19 @@ Bookie empowers individuals to take control of their digital footprint by provid
 - 🔐 **Privacy First**: Client-side encryption ensures your data remains private
 - 💰 **Data Monetization**: Earn from your personal data through secure transactions
 - 🛡️ **Blockchain Security**: Built on Stellar network for transparent, secure transactions
-- 🔑 **Freighter Wallet**: Simple, secure wallet integration
+- 🔑 **Freighter Wallet**: Simple, secure wallet integration (passkey auth removed)
 - 📱 **Modern UI**: Responsive design with beautiful, intuitive interface
 - 🌐 **Decentralized**: No central authority controls your data
+- ⚡ **Simplified Architecture**: Streamlined codebase for easy maintenance and extension
 
 ## 🏗️ Architecture
 
 ### Frontend (Next.js 15)
-- **Framework**: Next.js 15 with TypeScript
+- **Framework**: Next.js 15 with TypeScript and App Router
 - **Styling**: Tailwind CSS with Radix UI components
-- **Authentication**: Freighter wallet integration
-- **State Management**: React Context API
-- **Blockchain Integration**: Stellar SDK + Freighter API
+- **Wallet Integration**: Freighter-only (simplified from complex auth system)
+- **State Management**: React Context API with client-side only operations
+- **Blockchain Integration**: Dynamic Stellar SDK imports for SSR compatibility
 
 ### Smart Contract (Rust/Soroban)
 - **Platform**: Stellar Soroban smart contracts

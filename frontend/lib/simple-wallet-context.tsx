@@ -3,6 +3,17 @@
 import React, { createContext, useContext, useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
 
+// Type definitions for Freighter API
+interface FreighterApi {
+  isConnected: () => Promise<{ isConnected: boolean; error?: string }>
+  isAllowed: () => Promise<{ isAllowed: boolean; error?: string }>
+  requestAccess: () => Promise<{ address: string; error?: string }>
+  getAddress: () => Promise<{ address: string; error?: string }>
+  getNetwork: () => Promise<{ network: string; networkPassphrase: string; error?: string }>
+  signTransaction: (xdr: string, opts?: { networkPassphrase?: string; address?: string }) => Promise<{ signedTxXdr: string; signerAddress: string; error?: string }>
+  WatchWalletChanges: any
+}
+
 // Simple wallet context for Freighter only
 interface WalletContextType {
   isConnected: boolean
@@ -10,62 +21,169 @@ interface WalletContextType {
   connect: () => Promise<void>
   disconnect: () => void
   signTransaction: (txXdr: string) => Promise<string>
+  network?: string
+  networkPassphrase?: string
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [isConnected, setIsConnected] = useState(false)
+  const [isWalletConnected, setIsWalletConnected] = useState(false)
   const [publicKey, setPublicKey] = useState<string | null>(null)
+  const [network, setNetwork] = useState<string>()
+  const [networkPassphrase, setNetworkPassphrase] = useState<string>()
+  const [freighterApi, setFreighterApi] = useState<FreighterApi | null>(null)
   const { toast } = useToast()
+
+  // Load Freighter API dynamically on client side
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const loadFreighterApi = async () => {
+      try {
+        const api = await import('@stellar/freighter-api')
+        setFreighterApi(api as any)
+        checkConnection()
+      } catch (error) {
+        console.error('Failed to load Freighter API:', error)
+      }
+    }
+
+    loadFreighterApi()
+  }, [])
 
   // Check if already connected on mount
   useEffect(() => {
-    const savedPublicKey = localStorage.getItem('wallet_public_key')
-    if (savedPublicKey && window.freighterApi) {
-      window.freighterApi.isConnected().then((connected: boolean) => {
-        if (connected) {
-          setPublicKey(savedPublicKey)
-          setIsConnected(true)
-        } else {
+    if (!freighterApi) return
+    
+    checkConnection()
+    
+    // Set up wallet watcher
+    const watcher = new freighterApi.WatchWalletChanges(3000)
+    watcher.watch(({ address, network: net, networkPassphrase: netPassphrase }: any) => {
+      if (address && address !== publicKey) {
+        setPublicKey(address)
+        setIsWalletConnected(true)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('wallet_public_key', address)
+        }
+      }
+      if (net) setNetwork(net)
+      if (netPassphrase) setNetworkPassphrase(netPassphrase)
+    })
+
+    return () => {
+      watcher.stop()
+    }
+  }, [freighterApi, publicKey])
+
+  const checkConnection = async () => {
+    if (!freighterApi) return
+    
+    try {
+      const connected = await freighterApi.isConnected()
+      if (!connected.isConnected) {
+        // Clear saved data if Freighter is not connected
+        if (typeof window !== 'undefined') {
           localStorage.removeItem('wallet_public_key')
         }
-      }).catch(() => {
+        setIsWalletConnected(false)
+        setPublicKey(null)
+        return
+      }
+
+      const allowed = await freighterApi.isAllowed()
+      if (allowed.isAllowed) {
+        const addressResult = await freighterApi.getAddress()
+        if (addressResult.address) {
+          setPublicKey(addressResult.address)
+          setIsWalletConnected(true)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('wallet_public_key', addressResult.address)
+          }
+          
+          // Get network info
+          const networkResult = await freighterApi.getNetwork()
+          if (networkResult.network) {
+            setNetwork(networkResult.network)
+            setNetworkPassphrase(networkResult.networkPassphrase)
+          }
+        }
+      } else {
+        // User hasn't granted permission yet
+        if (typeof window !== 'undefined') {
+          const savedPublicKey = localStorage.getItem('wallet_public_key')
+          if (savedPublicKey) {
+            localStorage.removeItem('wallet_public_key')
+          }
+        }
+        setIsWalletConnected(false)
+        setPublicKey(null)
+      }
+    } catch (error) {
+      console.error("Error checking connection:", error)
+      if (typeof window !== 'undefined') {
         localStorage.removeItem('wallet_public_key')
-      })
+      }
+      setIsWalletConnected(false)
+      setPublicKey(null)
     }
-  }, [])
+  }
 
   const connect = async () => {
+    if (!freighterApi) {
+      toast({
+        title: "Freighter Not Loaded",
+        description: "Please wait for Freighter API to load and try again.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       // Check if Freighter is installed
-      if (!window.freighterApi) {
+      const connected = await freighterApi.isConnected()
+      if (!connected.isConnected) {
         toast({
           title: "Freighter Not Found",
           description: "Please install the Freighter browser extension and refresh the page.",
           variant: "destructive",
         })
         // Open Freighter installation page
-        window.open('https://freighter.app/', '_blank')
+        if (typeof window !== 'undefined') {
+          window.open('https://freighter.app/', '_blank')
+        }
         return
       }
 
-      // Get public key from Freighter
-      const address = await window.freighterApi.getAddress()
-      const publicKeyResult = typeof address === 'string' ? address : address.address
+      // Request access to user's public key
+      const accessResult = await freighterApi.requestAccess()
+      
+      if (accessResult.error) {
+        throw new Error(accessResult.error)
+      }
 
-      if (!publicKeyResult) {
+      if (!accessResult.address) {
         throw new Error("Failed to get address from Freighter")
       }
 
       // Save connection
-      setPublicKey(publicKeyResult)
-      setIsConnected(true)
-      localStorage.setItem('wallet_public_key', publicKeyResult)
+      setPublicKey(accessResult.address)
+      setIsWalletConnected(true)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wallet_public_key', accessResult.address)
+      }
+
+      // Get network info
+      const networkResult = await freighterApi.getNetwork()
+      if (networkResult.network) {
+        setNetwork(networkResult.network)
+        setNetworkPassphrase(networkResult.networkPassphrase)
+      }
 
       toast({
         title: "Wallet Connected",
-        description: `Connected to ${publicKeyResult.substring(0, 8)}...`,
+        description: `Connected to ${accessResult.address.substring(0, 8)}...`,
       })
 
     } catch (error) {
@@ -89,9 +207,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }
 
   const disconnect = () => {
-    setIsConnected(false)
+    setIsWalletConnected(false)
     setPublicKey(null)
-    localStorage.removeItem('wallet_public_key')
+    setNetwork(undefined)
+    setNetworkPassphrase(undefined)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wallet_public_key')
+    }
     
     toast({
       title: "Wallet Disconnected",
@@ -99,24 +221,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  const signTransaction = async (txXdr: string): Promise<string> => {
-    if (!window.freighterApi || !isConnected) {
+  const walletSignTransaction = async (txXdr: string): Promise<string> => {
+    if (!freighterApi || !isWalletConnected || !publicKey) {
       throw new Error("Wallet not connected")
     }
 
     try {
-      const result = await window.freighterApi.signTransaction(txXdr, {
-        networkPassphrase: "Test SDF Network ; September 2015"
+      const result = await freighterApi.signTransaction(txXdr, {
+        networkPassphrase: networkPassphrase || "Test SDF Network ; September 2015",
+        address: publicKey
       })
 
-      // Handle different response formats
-      if (typeof result === 'string') {
-        return result
-      } else if (result && typeof result === 'object') {
-        return result.signedTxXdr || result.signedTransaction || result.xdr || result.transactionXdr || ''
+      if (result.error) {
+        throw new Error(result.error)
       }
 
-      throw new Error("Invalid transaction signature format")
+      if (!result.signedTxXdr) {
+        throw new Error("Failed to get signed transaction")
+      }
+
+      return result.signedTxXdr
     } catch (error) {
       console.error("Transaction signing error:", error)
       throw error
@@ -125,11 +249,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WalletContext.Provider value={{
-      isConnected,
+      isConnected: isWalletConnected,
       publicKey,
       connect,
       disconnect,
-      signTransaction
+      signTransaction: walletSignTransaction,
+      network,
+      networkPassphrase
     }}>
       {children}
     </WalletContext.Provider>

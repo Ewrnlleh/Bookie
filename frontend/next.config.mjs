@@ -21,6 +21,20 @@ const nextConfig = {
         buffer: false,
       };
     }
+    
+    // Stellar SDK uyarılarını azaltmak için
+    config.module = {
+      ...config.module,
+      unknownContextCritical: false,
+      exprContextCritical: false,
+    };
+    
+    // Belirli modüller için uyarıları sustur
+    config.ignoreWarnings = [
+      /Critical dependency: require function is used in a way in which dependencies cannot be statically extracted/,
+      /Critical dependency: the request of a dependency is an expression/,
+    ];
+    
     return config;
   },
 }

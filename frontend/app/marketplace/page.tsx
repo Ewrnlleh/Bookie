@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useWallet } from "@/lib/simple-wallet-context"
 import { useToast } from "@/hooks/use-toast"
 import { Search, ShoppingCart, Database, Calendar, User } from "lucide-react"
-import { transactionService } from "@/services/simple-soroban"
 
 // Mock data for demonstration
 const mockAssets = [
@@ -96,14 +95,18 @@ export default function MarketplacePage() {
     setPurchasing(assetId)
 
     try {
+      // Import transaction service dynamically
+      const { getTransactionService } = await import("@/services/simple-soroban")
+      const service = getTransactionService()
+      
       // Build a test transaction
-      const txXdr = await transactionService.buildTestTransaction(publicKey!)
+      const txXdr = await service.buildTestTransaction(publicKey!)
       
       // Sign the transaction
       const signedXdr = await signTransaction(txXdr)
       
       // Submit the transaction
-      const result = await transactionService.submitTransaction(signedXdr)
+      const result = await service.submitTransaction(signedXdr)
 
       toast({
         title: "Purchase Successful!",

@@ -49,7 +49,7 @@ export default function Header() {
               alt="Bookie Logo" 
               width={48} 
               height={48}
-              className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16"
+              className="w-16 h-12"
             />
             <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Bookie</span>
           </Link>
