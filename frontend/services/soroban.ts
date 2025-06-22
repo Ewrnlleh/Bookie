@@ -32,7 +32,7 @@ let sorobanClient: RpcServer | null = null;
 let lastConnectionAttempt = 0;
 const RECONNECT_INTERVAL = 5000; // 5 seconds
 
-function getClient(): RpcServer {
+export function getClient(): RpcServer {
   if (!isBrowser) {
     throw new Error("Soroban client is only available in browser environments");
   }

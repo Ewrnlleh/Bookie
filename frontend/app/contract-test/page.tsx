@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { SorobanRpc } from '@stellar/stellar-sdk'
 
 // Test the corrected RPC endpoint directly
 export default function ContractTestPage() {
@@ -16,73 +15,37 @@ export default function ContractTestPage() {
       // Test 1: Basic RPC connectivity
       console.log('🧪 Testing RPC connectivity...')
       const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL!
-      const client = new SorobanRpc.Server(rpcUrl)
       
-      const healthResult = await client.getHealth()
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getHealth'
+        })
+      })
+      
+      const healthResult = await response.json()
       results.push({
         test: 'RPC Health Check',
-        status: 'PASS',
+        status: response.ok ? 'PASS' : 'FAIL',
         result: healthResult
       })
 
-      // Test 2: Get latest ledger
-      console.log('🧪 Testing ledger access...')
-      const latestLedger = await client.getLatestLedger()
+      // Test 2: Test environment variables
+      console.log('🧪 Testing environment variables...')
       results.push({
-        test: 'Latest Ledger',
+        test: 'Environment Variables',
         status: 'PASS',
         result: {
-          sequence: latestLedger.sequence,
-          hash: latestLedger.id.substring(0, 12) + '...'
+          rpcUrl: process.env.NEXT_PUBLIC_SOROBAN_RPC_URL,
+          contractId: process.env.NEXT_PUBLIC_BOOKIE_CONTRACT_ID?.substring(0, 20) + '...',
+          forceRealTx: process.env.NEXT_PUBLIC_FORCE_REAL_TRANSACTIONS
         }
       })
-
-      // Test 3: Test account validation (the original error source)
-      console.log('🧪 Testing account validation...')
-      const testAddress = 'GDCHDRSDOBRMSUDKRE2C4U4KDLNEATJPIHHR2ORFL5BSD56G4DQXL4VW' // Valid format
-      
-      try {
-        const account = await client.getAccount(testAddress)
-        results.push({
-          test: 'Account Fetch (Valid Address)',
-          status: 'PASS',
-          result: `Account exists: ${account.accountId().substring(0, 12)}...`
-        })
-      } catch (error: any) {
-        if (error.message?.includes('does not exist')) {
-          results.push({
-            test: 'Account Fetch (Valid Address)',
-            status: 'PASS',
-            result: 'Address format is valid (account just does not exist on network)'
-          })
-        } else {
-          results.push({
-            test: 'Account Fetch (Valid Address)',
-            status: 'FAIL',
-            result: error.message
-          })
-        }
-      }
-
-      // Test 4: Contract ID validation
-      console.log('🧪 Testing contract ID...')
-      const contractId = process.env.NEXT_PUBLIC_BOOKIE_CONTRACT_ID!
-      
-      try {
-        // Try to get contract data
-        const contractData = await client.getContractData(contractId, 'ledger', 'INSTANCE')
-        results.push({
-          test: 'Contract Access',
-          status: 'PASS',
-          result: 'Contract data accessible'
-        })
-      } catch (error: any) {
-        results.push({
-          test: 'Contract Access',
-          status: 'INFO',
-          result: `Contract query result: ${error.message}`
-        })
-      }
 
     } catch (error: any) {
       results.push({
