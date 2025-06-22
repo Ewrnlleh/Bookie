@@ -10,7 +10,7 @@ import Header from "@/components/header"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "DataVault Marketplace - Own Your Data, Earn From It",
+  title: "Bookie Marketplace - Own Your Data, Earn From It",
   description:
     "Decentralized marketplace for personal data. Upload, encrypt, and monetize your data while maintaining complete privacy and ownership.",
   keywords: "data marketplace, privacy, blockchain, stellar, personal data, monetization",

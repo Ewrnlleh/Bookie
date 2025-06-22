@@ -1,11 +1,11 @@
-🎨 Frontend Customization PDR: DataVault
+🎨 Frontend Customization PDR: Bookie
 Instructions for Workshop Participant:
 Fill in the following sections to customize this template for your own project.
 Replace the fields in the format [ENTER_HERE: description] with your own project information.
 
 📋 Project Information
 Selected Sector: Personal Data & Web3
-Platform Name: DataVault
+Platform Name: Bookie
 Main Asset Type: User-controlled Digital Footprints (e.g., browsing history, location data, shopping habits)
 Target Audience:
 Individual Users: People who want to control and monetize their personal data.
@@ -14,7 +14,7 @@ Companies & Researchers: Businesses, advertisers, and market researchers who nee
 
 🎯 Platform Vision
 Main Concept
-DataVault is a decentralized platform that empowers users to securely store their digital footprints in a personal, encrypted "data vault." It allows them to rent or sell anonymized access to this data to companies under their own terms, using smart contracts to ensure privacy, security, and fair compensation.
+Bookie is a decentralized platform that empowers users to securely store their digital footprints in a personal, encrypted "data vault." It allows them to rent or sell anonymized access to this data to companies under their own terms, using smart contracts to ensure privacy, security, and fair compensation.
 
 Value Proposition
 For Individual Users: Regain full ownership and control over your personal data, protect your privacy, and create a new, passive income stream.
@@ -48,7 +48,7 @@ Tone: Secure, empowering, and transparent.
 🏠 Home Page (app/page.tsx)
 Title and Description
 // Content to be updated:
-title: "DataVault"
+title: "Bookie"
 description: "Control your data. Monetize your digital footprint."
 
 Dashboard Cards
@@ -121,10 +121,10 @@ Transfer Terminology
 🎨 Layout (app/layout.tsx)
 Metadata
 export const metadata = {
-  title: 'DataVault - Own Your Digital Footprint',
+  title: 'Bookie - Own Your Digital Footprint',
   description: 'A decentralized marketplace to securely control and monetize your personal data. Your data, your rules, your profit.',
   icons: {
-    icon: '/favicon-datavault.ico', // A favicon representing a shield or a vault
+    icon: '/favicon-bookie.ico', // A favicon representing a shield or a vault
   }
 }
 
@@ -254,4 +254,4 @@ No new features will be added; existing ones will be customized for our project.
 
 "Your Data. Your Rules. Your Profit."
 
-This PDR template has been adapted to guide the creation of a Personal Data Marketplace (DataVault) platform. It offers a customizable and scalable structure tailored for the data economy.
+This PDR template has been adapted to guide the creation of a Personal Data Marketplace (Bookie) platform. It offers a customizable and scalable structure tailored for the data economy.
