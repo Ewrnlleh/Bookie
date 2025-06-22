@@ -20,8 +20,6 @@ export default function Header() {
     { href: "/passkey-auth", label: "Passkey Auth" },
     { href: "/wallet-test", label: "Wallet Test" },
     { href: "/wallet-connection-test", label: "Connection Test" },
-    { href: "/freighter-debug", label: "Debug" },
-    { href: "/freighter-debug-enhanced", label: "Freighter Fix" },
   ]
 
   const NavLinks = ({ mobile = false, onLinkClick }: { mobile?: boolean; onLinkClick?: () => void }) => (
@@ -34,7 +32,7 @@ export default function Header() {
             mobile
               ? "block px-4 py-3 text-lg font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 border-b border-gray-100"
               : "text-gray-600 hover:text-gray-900 font-medium px-3 py-2"
-          } ${link.label === "Debug" && !mobile ? "text-xs" : ""}`}
+          }`}
           onClick={onLinkClick}
         >
           {link.label}
