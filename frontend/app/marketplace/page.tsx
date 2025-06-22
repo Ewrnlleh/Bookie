@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useWallet } from "@/lib/wallet-context"
 import { useToast } from "@/hooks/use-toast"
-import { Search, Filter, ShoppingCart, Database, Calendar, User } from "lucide-react"
+import { Search, Filter, ShoppingCart, Database, Calendar, User, Copy } from "lucide-react"
 import { listDataRequests } from "@/services/soroban"
 import { useTransactionStatus } from "@/lib/hooks/useTransactionStatus"
+import { formatPublicKey } from "@/lib/utils"
 import type { DataAsset } from "@/lib/types"
 
 export default function MarketplacePage() {
@@ -26,6 +27,22 @@ export default function MarketplacePage() {
   }>({ assetId: null, txHash: null })
 
   const { status: txStatus, error: txError } = useTransactionStatus(purchaseState.txHash)
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast({
+        title: "Copied!",
+        description: "Seller ID copied to clipboard",
+      })
+    } catch (err) {
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy to clipboard",
+        variant: "destructive",
+      })
+    }
+  }
 
   useEffect(() => {
     // Fetch from Soroban contract
@@ -92,6 +109,15 @@ export default function MarketplacePage() {
 
     try {
       setPurchaseState({ assetId: asset.id, txHash: null })
+
+      // Debug logging
+      console.log('Building purchase transaction with:', {
+        publicKey,
+        publicKeyType: typeof publicKey,
+        publicKeyLength: publicKey?.length,
+        assetId: asset.id,
+        price: asset.price
+      })
 
       // Build a proper purchase transaction
       const { buildPurchaseTransaction } = await import("@/services/soroban")
@@ -166,7 +192,21 @@ export default function MarketplacePage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <User className="h-4 w-4" />
-                    <span>Seller: {asset.seller}</span>
+                    <span>Seller:</span>
+                    <div className="flex items-center gap-1">
+                      <code className="text-xs bg-muted px-1 py-0.5 rounded">
+                        {formatPublicKey(asset.seller)}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-muted"
+                        onClick={() => copyToClipboard(asset.seller)}
+                        title={`Copy full seller ID: ${asset.seller}`}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Database className="h-4 w-4" />

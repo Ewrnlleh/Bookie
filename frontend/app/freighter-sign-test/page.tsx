@@ -60,10 +60,10 @@ export default function FreighterSignTestPage() {
       
       try {
         console.log('Testing Freighter signTransaction with XDR:', testTxXdr)
-        console.log('Network passphrase:', "Test SDF Future Network ; October 2022")
+        console.log('Network passphrase:', "Test SDF Network ; September 2015")
         
         const signResult = await freighter.signTransaction(testTxXdr, {
-          networkPassphrase: "Test SDF Future Network ; October 2022"
+          networkPassphrase: "Test SDF Network ; September 2015"
         })
         
         testResults.signResult = signResult

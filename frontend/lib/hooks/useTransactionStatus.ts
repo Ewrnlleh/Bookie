@@ -13,6 +13,13 @@ export function useTransactionStatus(txHash: string | null) {
       return
     }
 
+    // Handle development mode transactions (mock hashes start with 'dev_')
+    if (txHash.startsWith('dev_')) {
+      console.log('Development mode transaction detected:', txHash)
+      setStatus('success')
+      return
+    }
+
     let isSubscribed = true
     const checkStatus = async () => {
       try {
@@ -31,6 +38,7 @@ export function useTransactionStatus(txHash: string | null) {
         }
       } catch (err) {
         if (!isSubscribed) return
+        console.warn('Transaction status check failed:', err)
         setStatus('error')
         setError(err instanceof Error ? err.message : 'Unknown error')
       }

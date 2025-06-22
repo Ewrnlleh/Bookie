@@ -95,7 +95,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Get public key (address)
-      const publicKey = await freighter.getAddress()
+      const addressResult = await freighter.getAddress()
+      const publicKey = typeof addressResult === 'string' ? addressResult : addressResult.address
+      
+      if (!publicKey || typeof publicKey !== 'string') {
+        throw new Error("Failed to get valid address from Freighter")
+      }
       
       setWalletType('freighter')
       setPublicKey(publicKey)
@@ -191,15 +196,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         // Sign with Freighter
         console.log('Attempting to sign transaction with Freighter...')
         console.log('Transaction XDR:', txXdr)
-        console.log('Network passphrase:', "Test SDF Future Network ; October 2022")
+        console.log('Network passphrase:', "Test SDF Network ; September 2015")
         
         // First check network details
         try {
           const networkDetails = await freighter.getNetworkDetails()
           console.log('Freighter network details:', networkDetails)
           
-          if (networkDetails.networkPassphrase !== "Test SDF Future Network ; October 2022") {
-            throw new Error(`Network mismatch. Freighter is on "${networkDetails.networkPassphrase}" but transaction is for "Test SDF Future Network ; October 2022"`)
+          if (networkDetails.networkPassphrase !== "Test SDF Network ; September 2015") {
+            throw new Error(`Network mismatch. Freighter is on "${networkDetails.networkPassphrase}" but transaction is for "Test SDF Network ; September 2015"`)
           }
         } catch (networkError) {
           console.warn('Could not check network details:', networkError)
@@ -207,12 +212,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         
         try {
           const signedTxResult = await freighter.signTransaction(txXdr, {
-            networkPassphrase: "Test SDF Future Network ; October 2022"
+            networkPassphrase: "Test SDF Network ; September 2015"
           })
           
           console.log('Freighter signTransaction result:', signedTxResult)
           console.log('Result type:', typeof signedTxResult)
           console.log('Result constructor:', signedTxResult?.constructor?.name)
+          
+          // Check if user rejected the transaction
+          if (signedTxResult && typeof signedTxResult === 'object' && (signedTxResult as any).error) {
+            const error = (signedTxResult as any).error
+            console.log('Freighter error detected:', error)
+            
+            if (error.code === -4 || error.message?.includes('rejected') || error.message?.includes('cancelled')) {
+              throw new Error('Transaction was cancelled by user')
+            } else {
+              throw new Error(`Freighter error: ${error.message || 'Unknown error'}`)
+            }
+          }
           
           // Extract the signed transaction XDR string from the result
           // Handle different possible response formats from Freighter
@@ -221,20 +238,28 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             signedTx = signedTxResult
           } else if (signedTxResult && typeof signedTxResult === 'object') {
             // Try different possible property names
-            signedTx = signedTxResult.signedTxXdr || 
-                      signedTxResult.signedTransaction || 
-                      signedTxResult.xdr ||
-                      signedTxResult.transactionXdr
+            signedTx = (signedTxResult as any).signedTxXdr || 
+                      (signedTxResult as any).signedTransaction || 
+                      (signedTxResult as any).xdr ||
+                      (signedTxResult as any).transactionXdr ||
+                      (signedTxResult as any).signed_transaction_xdr ||
+                      (signedTxResult as any).signed_tx_xdr
             
             console.log('Available properties in signedTxResult:', Object.keys(signedTxResult))
             console.log('All values:', Object.entries(signedTxResult))
           }
           
           console.log('Extracted signedTx:', signedTx)
+          console.log('signedTx type:', typeof signedTx)
+          console.log('signedTx length:', signedTx?.length)
           
-          if (!signedTx || typeof signedTx !== 'string') {
+          if (!signedTx || typeof signedTx !== 'string' || signedTx.trim() === '') {
             console.error('Invalid signed transaction result:', signedTxResult)
-            throw new Error('Failed to get signed transaction XDR string from Freighter')
+            console.error('Attempted to extract from properties:', [
+              'signedTxXdr', 'signedTransaction', 'xdr', 'transactionXdr', 
+              'signed_transaction_xdr', 'signed_tx_xdr'
+            ])
+            throw new Error(`Failed to get signed transaction XDR string from Freighter. Received: ${JSON.stringify(signedTxResult, null, 2)}`)
           }
           
           // Submit the signed transaction using our Soroban service

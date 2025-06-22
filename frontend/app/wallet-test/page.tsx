@@ -75,7 +75,7 @@ export default function WalletTestPage() {
       
       const transaction = new StellarSdk.TransactionBuilder(account, {
         fee: StellarSdk.BASE_FEE,
-        networkPassphrase: 'Test SDF Future Network ; October 2022',
+        networkPassphrase: 'Test SDF Network ; September 2015',
       })
       .addOperation(StellarSdk.Operation.payment({
         destination: destinationKeypair.publicKey(),

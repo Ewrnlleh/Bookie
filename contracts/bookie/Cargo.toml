@@ -1,17 +1,23 @@
 [package]
 name = "bookie"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
+description = "Bookie Data Marketplace - Stellar Soroban Smart Contract"
+authors = ["Bookie Team"]
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
+doctest = false
 
 [dependencies]
-soroban-sdk = "20.0.0"
-base64ct = "=1.6.0"
+soroban-sdk = { version = "21.1.1", default-features = false }
 
 [dev-dependencies]
-# Add test dependencies here if needed
+soroban-sdk = { version = "21.1.1", features = ["testutils"], default-features = false }
+
+[features]
+default = []
+testutils = ["soroban-sdk/testutils"]
 
 [profile.release]
 opt-level = "z"
@@ -19,3 +25,7 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = "debuginfo"
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true

@@ -62,3 +62,15 @@ export interface TransactionDetails {
   status: 'pending' | 'success' | 'error'
   error?: string
 }
+
+// Freighter wallet types
+declare global {
+  interface Window {
+    freighterApi?: {
+      isConnected: () => Promise<boolean>
+      getAddress: () => Promise<string | { address: string }>
+      getNetworkDetails: () => Promise<{ networkPassphrase: string; networkUrl: string }>
+      signTransaction: (xdr: string, options?: { networkPassphrase: string }) => Promise<string | { signedTxXdr?: string; signedTransaction?: string; xdr?: string; transactionXdr?: string; signed_transaction_xdr?: string; signed_tx_xdr?: string; error?: { code: number; message: string } }>
+    }
+  }
+}

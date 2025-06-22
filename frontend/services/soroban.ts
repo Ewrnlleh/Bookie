@@ -1,16 +1,31 @@
 import Server from '@stellar/stellar-sdk'
-import { xdr, contract, Address, nativeToScVal, Contract, Keypair, TransactionBuilder, BASE_FEE, Networks } from "@stellar/stellar-sdk"
+import { xdr, contract, Address, nativeToScVal, Contract, Keypair, TransactionBuilder, BASE_FEE, Networks, Account, Operation, Asset } from "@stellar/stellar-sdk"
 import type { DataAsset } from "@/lib/types"
 import { base64ToUint8Array, uint8ArrayToBase64, concatUint8Arrays } from "@/lib/utils"
 import { Server as RpcServer } from '@stellar/stellar-sdk/rpc'
 
 const isBrowser = typeof window !== "undefined"
 const contractId = process.env.NEXT_PUBLIC_BOOKIE_CONTRACT_ID || "YOUR_CONTRACT_ID"
-const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://rpc-futurenet.stellar.org"
-const FUTURENET_PASSPHRASE = "Test SDF Future Network ; October 2022"
+const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || "https://rpc-testnet.stellar.org"
+const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015"
 
-// Development mode check
-const isDevelopment = process.env.NODE_ENV === 'development' || contractId === "YOUR_CONTRACT_ID"
+// Development mode check - can be overridden with environment variable
+const forceRealTransactions = process.env.NEXT_PUBLIC_FORCE_REAL_TRANSACTIONS === 'true'
+const isDevelopment = !forceRealTransactions && (process.env.NODE_ENV === 'development' || contractId === "YOUR_CONTRACT_ID")
+
+// Debug logging for development mode detection
+if (isBrowser) {
+  console.log('🔧 Transaction Mode Debug:', {
+    forceRealTransactions,
+    isDevelopment,
+    NODE_ENV: process.env.NODE_ENV,
+    contractId: contractId.substring(0, 10) + '...',
+    isPlaceholder: contractId === "YOUR_CONTRACT_ID"
+  })
+}
+
+// Service initialized
+console.log('Soroban service initialized for Testnet')
 
 // Initialize Soroban client
 let sorobanClient: RpcServer | null = null;
@@ -201,15 +216,41 @@ export async function submitSignedTransaction(signedTxXdr: string) {
     throw new SorobanError('Transaction submission failed: Empty transaction XDR')
   }
   
+  // Check if we should mock the transaction submission
+  if (isDevelopment) {
+    console.warn('🔧 Development mode: Simulating successful transaction submission')
+    console.log('Transaction will be mocked because:', {
+      forceRealTransactions,
+      isDevelopment,
+      NODE_ENV: process.env.NODE_ENV,
+      contractIdIsPlaceholder: contractId === "YOUR_CONTRACT_ID"
+    })
+    const mockHash = `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    console.log('Mock transaction hash:', mockHash)
+    
+    return {
+      hash: mockHash,
+      status: 'SUCCESS'
+    }
+  }
+  
+  // Submitting REAL transaction
+  console.log("🚀 Submitting REAL transaction to Stellar network!", {
+    rpcUrl,
+    txXdrLength: signedTxXdr.length,
+    txXdrPreview: signedTxXdr.substring(0, 50) + '...'
+  })
+  
   try {
     const result = await submitTransaction(signedTxXdr)
+    console.log("✅ Real transaction submitted successfully:", result)
     return {
       hash: result.hash,
       status: result.status,
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error submitting transaction'
-    throw new SorobanError(message)
+    throw new SorobanError(`Transaction submission failed: ${message}`)
   }
 }
 
@@ -408,7 +449,7 @@ export async function listDataRequests(): Promise<DataAsset[]> {
     // Build transaction to call get_requests
     const transaction = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
-      networkPassphrase: FUTURENET_PASSPHRASE,
+      networkPassphrase: TESTNET_PASSPHRASE,
     })
       .addOperation(contractInstance.call("get_requests"))
       .setTimeout(30)
@@ -457,7 +498,7 @@ export async function createDataRequest(params: {
     // Build transaction to call create_request
     const transaction = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
-      networkPassphrase: FUTURENET_PASSPHRASE,
+      networkPassphrase: TESTNET_PASSPHRASE,
     })
       .addOperation(contractInstance.call("create_request", requesterAddr, dataTypeVal, priceVal, durationVal))
       .setTimeout(30)
@@ -497,7 +538,7 @@ export async function approveDataRequest(
     // Build transaction to call approve_request
     const transaction = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
-      networkPassphrase: FUTURENET_PASSPHRASE,
+      networkPassphrase: TESTNET_PASSPHRASE,
     })
       .addOperation(contractInstance.call("approve_request", indexVal))
       .setTimeout(30)
@@ -517,24 +558,50 @@ export async function buildPurchaseTransaction(
 ): Promise<string> {
   if (!isBrowser) throw new Error("Must be run in browser")
   
-  // Development mode: return a valid test transaction XDR
+  // Validate input parameters
+  if (!buyerAddress || typeof buyerAddress !== 'string') {
+    throw new Error("Invalid buyer address: must be a valid Stellar account ID")
+  }
+  
+  if (!assetId || typeof assetId !== 'string') {
+    throw new Error("Invalid asset ID")
+  }
+  
+  if (!price || typeof price !== 'number' || price <= 0) {
+    throw new Error("Invalid price: must be a positive number")
+  }
+  
+  // Check if we should create real transactions
   if (isDevelopment) {
-    console.warn("Development mode: Creating valid test transaction for purchase")
+    console.warn("🔧 Development mode: Creating simple mock transaction for purchase")
+    console.log('Transaction will be mocked because:', {
+      forceRealTransactions,
+      isDevelopment,
+      NODE_ENV: process.env.NODE_ENV,
+      contractIdIsPlaceholder: contractId === "YOUR_CONTRACT_ID"
+    })
     
     try {
-      // Import Stellar SDK dynamically
-      const { Keypair, Account, TransactionBuilder, Operation, Asset } = await import('@stellar/stellar-sdk')
+      // Validate the buyer address format for Stellar using already imported Keypair
+      try {
+        // This will throw if the address is not a valid Stellar account ID
+        Keypair.fromPublicKey(buyerAddress)
+      } catch (validationError: any) {
+        console.error('Invalid Stellar address format:', buyerAddress)
+        throw new Error(`Invalid Stellar account ID format: ${buyerAddress}`)
+      }
       
-      // Create a mock account with sequence number 0 for testing
+      // Return a simple mock XDR for development testing
+      // This is a valid XDR format that can be used for testing
+      console.log(`Mock purchase transaction for asset ${assetId} at price ${price} by ${buyerAddress}`)
+       // Create a minimal payment transaction
       const account = new Account(buyerAddress, '0')
-      
-      // Create a simple payment transaction as a placeholder
       const transaction = new TransactionBuilder(account, {
         fee: BASE_FEE,
-        networkPassphrase: FUTURENET_PASSPHRASE,
+        networkPassphrase: TESTNET_PASSPHRASE,
       })
       .addOperation(Operation.payment({
-        destination: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", // Mock destination
+        destination: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
         asset: Asset.native(),
         amount: price.toString(),
       }))
@@ -542,17 +609,59 @@ export async function buildPurchaseTransaction(
       .build()
       
       return transaction.toXDR()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating test transaction:', error)
-      throw new Error('Failed to create test transaction')
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        buyerAddress,
+        assetId,
+        price
+      })
+      throw new Error(`Failed to create test transaction: ${error.message}`)
     }
   }
   
+  // Creating REAL transaction
+  console.log("🚀 Creating REAL purchase transaction!", {
+    buyerAddress: buyerAddress.substring(0, 10) + '...',
+    assetId,
+    price,
+    contractId: contractId.substring(0, 10) + '...',
+    rpcUrl
+  })
+  
   try {
+    // Validate the buyer address format for Stellar before making RPC call
+    const { Keypair } = await import('@stellar/stellar-sdk')
+    try {
+      Keypair.fromPublicKey(buyerAddress)
+    } catch (validationError) {
+      console.error('Invalid Stellar address format:', buyerAddress)
+      throw new Error(`Invalid Stellar account ID format: ${buyerAddress}`)
+    }
+    
+    console.log("🔍 Fetching account from Stellar network...")
     const client = getClient()
-    const sourceAccount = await client.getAccount(buyerAddress)
+    let sourceAccount
+    try {
+      sourceAccount = await client.getAccount(buyerAddress)
+      console.log("✅ Account found on network:", {
+        accountId: sourceAccount.accountId(),
+        sequence: sourceAccount.sequenceNumber()
+      })
+    } catch (accountError: any) {
+      console.error("❌ Failed to fetch account from network:", accountError)
+      
+      // Check if account doesn't exist
+      if (accountError.message?.includes('does not exist') || accountError.message?.includes('account_not_found')) {
+        throw new Error(`Account ${buyerAddress.substring(0, 10)}... does not exist on Testnet. Please fund it first at https://friendbot.stellar.org`)
+      }
+      throw new Error(`Failed to fetch account: ${accountError.message}`)
+    }
     
     // Create contract instance
+    console.log("🔗 Creating contract instance...")
     const contractInstance = new Contract(contractId)
     
     // Convert parameters to Soroban values
@@ -561,17 +670,37 @@ export async function buildPurchaseTransaction(
     const priceVal = nativeToScVal(price, { type: "u64" })
     
     // Build transaction to call purchase_data
+    console.log("🏗️ Building transaction with contract call...")
     const transaction = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
-      networkPassphrase: FUTURENET_PASSPHRASE,
+      networkPassphrase: TESTNET_PASSPHRASE,
     })
       .addOperation(contractInstance.call("purchase_data", assetIdVal, buyerAddr, priceVal))
       .setTimeout(30)
       .build()
 
-    return transaction.toXDR()
-  } catch (e) {
-    console.error("Error building purchase transaction:", e)
+    console.log("✅ Transaction built successfully!")
+    const txXdr = transaction.toXDR()
+    console.log("📄 Transaction XDR length:", txXdr.length)
+    
+    return txXdr
+  } catch (e: any) {
+    console.error("❌ Error building purchase transaction:", e)
+    console.error("Error details:", {
+      name: e.name,
+      message: e.message,
+      stack: e.stack?.split('\n').slice(0, 5)
+    })
+    
+    // Provide more helpful error messages
+    if (e.message?.includes('account does not exist')) {
+      throw new Error(`Account ${buyerAddress.substring(0, 10)}... does not exist on Testnet. Please fund it first at https://friendbot.stellar.org`)
+    } else if (e.message?.includes('contract') && e.message?.includes('not found')) {
+      throw new Error(`Contract ${contractId.substring(0, 10)}... not found on Testnet. Contract may not be deployed.`)
+    } else if (e.message?.includes('network')) {
+      throw new Error(`Network error: ${e.message}. Please check your internet connection and try again.`)
+    }
+    
     throw e
   }
 }
