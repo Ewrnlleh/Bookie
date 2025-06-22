@@ -17,9 +17,7 @@ export default function Header() {
     { href: "/marketplace", label: "Marketplace" },
     { href: "/sell", label: "Sell Data" },
     { href: "/vault", label: "My Vault" },
-    { href: "/passkey-auth", label: "Passkey Auth" },
     { href: "/wallet-test", label: "Wallet Test" },
-    { href: "/wallet-connection-test", label: "Connection Test" },
   ]
 
   const NavLinks = ({ mobile = false, onLinkClick }: { mobile?: boolean; onLinkClick?: () => void }) => (

@@ -134,17 +134,17 @@ cargo test         # Run Rust tests
 
 ## 🧪 Testing
 
-### Comprehensive Test Suite
-Visit `/wallet-connection-test` for:
-- Environment validation
-- Wallet connection testing
-- Transaction flow verification
-- Debug tools and diagnostics
+### Built-in Testing
+The application includes comprehensive testing capabilities through:
+- Wallet connection validation
+- Transaction flow verification  
+- Error handling and recovery
+- Real-time status monitoring
 
-### Debug Tools
-- 🔍 **Deep Scan**: Extensive Freighter analysis
-- 🐛 **Force Check**: Manual detection debugging
-- 📊 **Real-time Monitoring**: Connection status updates
+### Development Testing
+- Component-level testing with TypeScript
+- Smart contract testing with Rust
+- Integration testing for blockchain interactions
 
 ## 🛠️ Tech Stack
 
@@ -181,7 +181,6 @@ Visit `/wallet-connection-test` for:
 - **`/marketplace`** - Browse and purchase data assets
 - **`/sell`** - Upload and tokenize your data
 - **`/vault`** - Manage your data assets
-- **`/wallet-connection-test`** - Comprehensive testing suite
 
 ## 🤝 Contributing
 
