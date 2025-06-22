@@ -14,7 +14,7 @@ import { useTransactionStatus } from "@/lib/hooks/useTransactionStatus"
 import type { DataAsset } from "@/lib/types"
 
 export default function MarketplacePage() {
-  const { isConnected, connect, signAndSubmitTransaction } = useWallet()
+  const { isConnected, connect, signAndSubmitTransaction, publicKey } = useWallet()
   const { toast } = useToast()
   const [assets, setAssets] = useState<DataAsset[]>([])
   const [filteredAssets, setFilteredAssets] = useState<DataAsset[]>([])
@@ -81,11 +81,21 @@ export default function MarketplacePage() {
       }
     }
 
+    if (!publicKey) {
+      toast({
+        title: "Wallet Error",
+        description: "No public key available",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setPurchaseState({ assetId: asset.id, txHash: null })
 
-      // Create purchase transaction XDR (mock for now)
-      const txXdr = `mock_purchase_transaction_for_${asset.id}`
+      // Build a proper purchase transaction
+      const { buildPurchaseTransaction } = await import("@/services/soroban")
+      const txXdr = await buildPurchaseTransaction(publicKey, asset.id, asset.price)
 
       const { hash } = await signAndSubmitTransaction(txXdr)
       setPurchaseState((prev) => ({ ...prev, txHash: hash }))
@@ -96,7 +106,14 @@ export default function MarketplacePage() {
       })
     } catch (error) {
       setPurchaseState({ assetId: null, txHash: null })
-      // Error toast will be shown by wallet context
+      console.error("Purchase failed:", error)
+      
+      // Show specific error message
+      toast({
+        title: "Purchase Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      })
     }
   }
 

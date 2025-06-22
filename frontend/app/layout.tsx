@@ -5,7 +5,7 @@ import "./globals.css"
 import { WalletProvider } from "@/lib/wallet-context"
 import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/toaster"
-import Header from "@/components/header"
+import LayoutWrapper from "@/components/layout-wrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,8 +27,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <WalletProvider>
           <AuthProvider>
-            <Header />
-            <main>{children}</main>
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
             <Toaster />
           </AuthProvider>
         </WalletProvider>

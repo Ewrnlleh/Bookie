@@ -509,3 +509,69 @@ export async function approveDataRequest(
     throw e
   }
 }
+
+export async function buildPurchaseTransaction(
+  buyerAddress: string,
+  assetId: string,
+  price: number
+): Promise<string> {
+  if (!isBrowser) throw new Error("Must be run in browser")
+  
+  // Development mode: return a valid test transaction XDR
+  if (isDevelopment) {
+    console.warn("Development mode: Creating valid test transaction for purchase")
+    
+    try {
+      // Import Stellar SDK dynamically
+      const { Keypair, Account, TransactionBuilder, Operation, Asset } = await import('@stellar/stellar-sdk')
+      
+      // Create a mock account with sequence number 0 for testing
+      const account = new Account(buyerAddress, '0')
+      
+      // Create a simple payment transaction as a placeholder
+      const transaction = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: FUTURENET_PASSPHRASE,
+      })
+      .addOperation(Operation.payment({
+        destination: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF", // Mock destination
+        asset: Asset.native(),
+        amount: price.toString(),
+      }))
+      .setTimeout(300)
+      .build()
+      
+      return transaction.toXDR()
+    } catch (error) {
+      console.error('Error creating test transaction:', error)
+      throw new Error('Failed to create test transaction')
+    }
+  }
+  
+  try {
+    const client = getClient()
+    const sourceAccount = await client.getAccount(buyerAddress)
+    
+    // Create contract instance
+    const contractInstance = new Contract(contractId)
+    
+    // Convert parameters to Soroban values
+    const assetIdVal = nativeToScVal(assetId)
+    const buyerAddr = nativeToScVal(Address.fromString(buyerAddress))
+    const priceVal = nativeToScVal(price, { type: "u64" })
+    
+    // Build transaction to call purchase_data
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: FUTURENET_PASSPHRASE,
+    })
+      .addOperation(contractInstance.call("purchase_data", assetIdVal, buyerAddr, priceVal))
+      .setTimeout(30)
+      .build()
+
+    return transaction.toXDR()
+  } catch (e) {
+    console.error("Error building purchase transaction:", e)
+    throw e
+  }
+}

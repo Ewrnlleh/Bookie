@@ -16,15 +16,9 @@ export default function Header() {
               alt="Bookie Logo" 
               width={48} 
               height={48}
-              className="w-20 h-16"
+              className="w-16 h-13"
             />
-            <Image 
-              src="/bookie-title.png" 
-              alt="Bookie" 
-              width={120} 
-              height={32}
-              className="h-8"
-            />
+            <span className="text-2xl font-bold text-gray-900">Bookie</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">

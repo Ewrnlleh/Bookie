@@ -91,86 +91,87 @@ export default function HomePage() {
       <section className="bg-white py-16">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">How It Works</h2>
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">For Data Producers</h3>
-              <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-12 items-start max-w-6xl mx-auto">
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center md:text-left">For Data Producers</h3>
+              <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     1
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Connect Your Wallet</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Connect Your Wallet</h4>
                     <p className="text-gray-600">Use Freighter wallet to securely connect to the platform</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     2
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Upload & Encrypt</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Upload & Encrypt</h4>
                     <p className="text-gray-600">
                       Upload your data files - they're encrypted in your browser before storage
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     3
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Set Price & List</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Set Price & List</h4>
                     <p className="text-gray-600">Choose your price and list your data on the marketplace</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     4
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Earn XLM</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Earn XLM</h4>
                     <p className="text-gray-600">Receive payments directly to your wallet when data is purchased</p>
                   </div>
                 </div>
               </div>
             </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">For Data Consumers</h3>
-              <div className="space-y-4">
+            
+            <div className="space-y-6">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center md:text-left">For Data Consumers</h3>
+              <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     1
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Browse Marketplace</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Browse Marketplace</h4>
                     <p className="text-gray-600">Discover data sets that match your research needs</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     2
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Review Details</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Review Details</h4>
                     <p className="text-gray-600">Check data descriptions, pricing, and seller information</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     3
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Purchase Securely</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Purchase Securely</h4>
                     <p className="text-gray-600">Buy data using XLM through secure smart contracts</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold flex-shrink-0">
                     4
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">Access Data</h4>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Access Data</h4>
                     <p className="text-gray-600">Download and decrypt your purchased data for analysis</p>
                   </div>
                 </div>
