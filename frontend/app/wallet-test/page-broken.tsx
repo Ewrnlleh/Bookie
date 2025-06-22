@@ -385,7 +385,7 @@ export default function WalletTestPage() {
               </Button>
               
               <div className="text-sm text-muted-foreground">
-                <p><strong>Note:</strong> This will create and submit a real testnet transaction with a tiny amount (0.0000001 XLM).</p>
+                <p><strong>Note:</strong> This will test the transaction signing flow without actually submitting to the blockchain.</p>
                 {walletType === 'freighter' && (
                   <p className="mt-1">
                     <strong>Freighter:</strong> The browser extension will prompt you to sign the transaction.
