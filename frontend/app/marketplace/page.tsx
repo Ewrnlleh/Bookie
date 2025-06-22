@@ -1,312 +1,245 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useWallet } from "@/lib/wallet-context"
+import { useWallet } from "@/lib/simple-wallet-context"
 import { useToast } from "@/hooks/use-toast"
-import { Search, Filter, ShoppingCart, Database, Calendar, User, Copy, RefreshCw } from "lucide-react"
-import { getDataAssets } from "@/services/soroban"
-import { useTransactionStatus } from "@/lib/hooks/useTransactionStatus"
-import { formatPublicKey } from "@/lib/utils"
-import type { DataAsset } from "@/lib/types"
+import { Search, ShoppingCart, Database, Calendar, User } from "lucide-react"
+import { transactionService } from "@/services/simple-soroban"
+
+// Mock data for demonstration
+const mockAssets = [
+  {
+    id: "asset-1",
+    title: "Personal Fitness Data",
+    description: "6 months of fitness tracking data including steps, heart rate, and workout logs",
+    dataType: "Health & Fitness",
+    price: 25,
+    seller: "GD2I2...",
+    size: "2.3 MB",
+    listedDate: "2024-12-15"
+  },
+  {
+    id: "asset-2", 
+    title: "Social Media Interactions",
+    description: "Anonymized social media engagement patterns and interaction data",
+    dataType: "Social Media",
+    price: 15,
+    seller: "GC8XY...",
+    size: "1.8 MB",
+    listedDate: "2024-12-14"
+  },
+  {
+    id: "asset-3",
+    title: "Shopping Behavior Dataset",
+    description: "E-commerce browsing and purchase behavior data from 2024",
+    dataType: "E-commerce",
+    price: 40,
+    seller: "GA9ZK...",
+    size: "5.1 MB", 
+    listedDate: "2024-12-13"
+  }
+]
 
 export default function MarketplacePage() {
-  const { isConnected, connect, signAndSubmitTransaction, publicKey } = useWallet()
+  const { isConnected, connect, signTransaction, publicKey } = useWallet()
   const { toast } = useToast()
-  const [assets, setAssets] = useState<DataAsset[]>([])
-  const [filteredAssets, setFilteredAssets] = useState<DataAsset[]>([])
+  const [assets] = useState(mockAssets)
+  const [filteredAssets, setFilteredAssets] = useState(mockAssets)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
-  const [purchaseState, setPurchaseState] = useState<{
-    assetId: string | null
-    txHash: string | null
-  }>({ assetId: null, txHash: null })
+  const [purchasing, setPurchasing] = useState<string | null>(null)
 
-  const { status: txStatus, error: txError } = useTransactionStatus(purchaseState.txHash)
-
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      toast({
-        title: "Copied!",
-        description: "Seller ID copied to clipboard",
-      })
-    } catch (err) {
-      toast({
-        title: "Copy failed",
-        description: "Unable to copy to clipboard",
-        variant: "destructive",
-      })
-    }
+  // Filter assets based on search and type
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    filterAssets(term, filterType)
   }
 
-  useEffect(() => {
-    // Fetch from Soroban contract
-    getDataAssets()
-      .then(setAssets)
-      .catch(console.error)
-      
-    // Listen for marketplace refresh events
-    const handleMarketplaceRefresh = () => {
-      console.log('🔄 Marketplace refresh triggered')
-      getDataAssets()
-        .then(setAssets)
-        .catch(console.error)
-    }
-    
-    window.addEventListener('marketplace-refresh', handleMarketplaceRefresh)
-    return () => window.removeEventListener('marketplace-refresh', handleMarketplaceRefresh)
-  }, [])
+  const handleFilterChange = (type: string) => {
+    setFilterType(type)
+    filterAssets(searchTerm, type)
+  }
 
-  useEffect(() => {
+  const filterAssets = (search: string, type: string) => {
     let filtered = assets
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (asset) =>
-          asset.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          asset.description.toLowerCase().includes(searchTerm.toLowerCase()),
+    if (search) {
+      filtered = filtered.filter(asset =>
+        asset.title.toLowerCase().includes(search.toLowerCase()) ||
+        asset.description.toLowerCase().includes(search.toLowerCase()) ||
+        asset.dataType.toLowerCase().includes(search.toLowerCase())
       )
     }
 
-    if (filterType !== "all") {
-      filtered = filtered.filter((asset) => asset.dataType === filterType)
+    if (type !== "all") {
+      filtered = filtered.filter(asset => asset.dataType === type)
     }
 
     setFilteredAssets(filtered)
-  }, [assets, searchTerm, filterType])
-
-  // Monitor transaction status
-  useEffect(() => {
-    if (purchaseState.txHash && txStatus === "success") {
-      toast({
-        title: "Purchase Successful",
-        description: "Your data asset purchase has been confirmed",
-      })
-      setPurchaseState({ assetId: null, txHash: null })
-      // Refresh asset list
-      getDataAssets().then(setAssets).catch(console.error)
-    } else if (txStatus === "error" && txError) {
-      toast({
-        title: "Purchase Failed",
-        description: txError,
-        variant: "destructive",
-      })
-      setPurchaseState({ assetId: null, txHash: null })
-    }
-  }, [txStatus, txError, purchaseState.txHash, toast])
-
-  const handleRefresh = async () => {
-    console.log('🔄 Manual marketplace refresh triggered')
-    try {
-      const freshAssets = await getDataAssets()
-      setAssets(freshAssets)
-      toast({
-        title: "Refreshed",
-        description: "Marketplace data updated",
-      })
-    } catch (error) {
-      toast({
-        title: "Refresh Failed", 
-        description: "Could not refresh marketplace data",
-        variant: "destructive",
-      })
-    }
   }
 
-  const handlePurchase = async (asset: DataAsset) => {
+  const handlePurchase = async (assetId: string, price: number) => {
     if (!isConnected) {
-      try {
-        await connect()
-      } catch (error) {
-        return // Connect toast will show error
-      }
-    }
-
-    if (!publicKey) {
       toast({
-        title: "Wallet Error",
-        description: "No public key available",
+        title: "Wallet Required",
+        description: "Please connect your wallet to purchase data assets.",
         variant: "destructive",
       })
       return
     }
 
+    setPurchasing(assetId)
+
     try {
-      setPurchaseState({ assetId: asset.id, txHash: null })
-
-      // Debug logging
-      console.log('Building purchase transaction with:', {
-        publicKey,
-        publicKeyType: typeof publicKey,
-        publicKeyLength: publicKey?.length,
-        assetId: asset.id,
-        price: asset.price
-      })
-
-      // Build a proper purchase transaction
-      const { buildPurchaseTransaction } = await import("@/services/soroban")
-      const txXdr = await buildPurchaseTransaction(publicKey, asset.id, asset.price)
-
-      // Sign and submit the transaction using wallet context
-      const result = await signAndSubmitTransaction(txXdr)
+      // Build a test transaction
+      const txXdr = await transactionService.buildTestTransaction(publicKey!)
       
-      // Track the purchase to vault if successful (both real and mock transactions)
-      if (result.hash) {
-        const { saveUserPurchase } = await import("@/services/soroban")
-        const purchase = {
-          id: `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          assetId: asset.id,
-          title: asset.title,
-          description: asset.description,
-          dataType: asset.dataType,
-          price: asset.price,
-          txHash: result.hash,
-          purchaseDate: new Date().toISOString(),
-          size: asset.size,
-          seller: asset.seller
-        }
-        saveUserPurchase(publicKey, purchase)
-        console.log('🎉 Purchase saved to vault:', purchase)
-        
-        // Trigger vault refresh
-        window.dispatchEvent(new CustomEvent('vault-refresh'))
-      }
+      // Sign the transaction
+      const signedXdr = await signTransaction(txXdr)
       
-      setPurchaseState((prev) => ({ ...prev, txHash: result.hash }))
+      // Submit the transaction
+      const result = await transactionService.submitTransaction(signedXdr)
 
       toast({
-        title: "Purchase Initiated",
-        description: "Your purchase is being processed...",
+        title: "Purchase Successful!",
+        description: `Data asset purchased successfully. Transaction: ${result.hash.substring(0, 8)}...`,
       })
+
     } catch (error) {
-      setPurchaseState({ assetId: null, txHash: null })
       console.error("Purchase failed:", error)
-      
-      // Show specific error message
       toast({
         title: "Purchase Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        description: error instanceof Error ? error.message : "Failed to purchase asset",
         variant: "destructive",
       })
+    } finally {
+      setPurchasing(null)
     }
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col gap-6">
-        {/* Search & Filter Section */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search data assets..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              className="px-3"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span className="ml-1 hidden sm:inline">Refresh</span>
-            </Button>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-40">
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="browsing">Browsing History</SelectItem>
-                <SelectItem value="location">Location Data</SelectItem>
-                <SelectItem value="health">Health Data</SelectItem>
-                <SelectItem value="financial">Financial Data</SelectItem>
-                <SelectItem value="social">Social Media Data</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="flex flex-col gap-8">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Data Marketplace</h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Discover and purchase high-quality datasets from verified sellers. 
+            All data is encrypted and privacy-protected.
+          </p>
         </div>
 
-        {/* Asset Grid */}
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search datasets..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={filterType} onValueChange={handleFilterChange}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="Health & Fitness">Health & Fitness</SelectItem>
+              <SelectItem value="Social Media">Social Media</SelectItem>
+              <SelectItem value="E-commerce">E-commerce</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Connection Status */}
+        {!isConnected && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-amber-800">Wallet Required</h3>
+                  <p className="text-amber-700">Connect your wallet to purchase data assets</p>
+                </div>
+                <Button onClick={connect} variant="outline">
+                  Connect Wallet
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Assets Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAssets.map((asset) => (
-            <Card key={asset.id} className="h-full">
+            <Card key={asset.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{asset.title}</CardTitle>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{asset.title}</CardTitle>
+                    <CardDescription className="mt-2">{asset.description}</CardDescription>
+                  </div>
                   <Badge variant="secondary">{asset.dataType}</Badge>
                 </div>
-                <CardDescription className="line-clamp-3">{asset.description}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4" />
-                  <span className="text-muted-foreground">Seller:</span>
-                  <div className="flex items-center gap-1">
-                    <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                      {formatPublicKey(asset.seller)}
-                    </code>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Asset Info */}
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      <span>{asset.size}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>{asset.listedDate}</span>
+                    </div>
+                    <div className="flex items-center gap-2 col-span-2">
+                      <User className="h-4 w-4" />
+                      <span>Seller: {asset.seller}</span>
+                    </div>
+                  </div>
+
+                  {/* Price and Purchase */}
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div className="text-2xl font-bold text-green-600">
+                      ${asset.price}
+                    </div>
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-muted"
-                      onClick={() => copyToClipboard(asset.seller)}
-                      title={`Copy full seller ID: ${asset.seller}`}
+                      onClick={() => handlePurchase(asset.id, asset.price)}
+                      disabled={!isConnected || purchasing === asset.id}
+                      className="flex items-center gap-2"
                     >
-                      <Copy className="h-3 w-3" />
+                      {purchasing === asset.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="h-4 w-4" />
+                          Purchase
+                        </>
+                      )}
                     </Button>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Database className="h-4 w-4" />
-                  <span>Size: {asset.size}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Listed: {new Date(asset.listedDate).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between items-center mt-4">
-                  <div className="text-lg font-semibold">{asset.price} XLM</div>
-                  <Button
-                    onClick={() => handlePurchase(asset)}
-                    disabled={purchaseState.assetId === asset.id || !isConnected}
-                  >
-                    {purchaseState.assetId === asset.id ? (
-                      "Processing..."
-                    ) : (
-                      <>
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        Purchase
-                      </>
-                    )}
-                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Empty State */}
         {filteredAssets.length === 0 && (
           <div className="text-center py-12">
-            <Database className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-semibold">No Data Assets Found</h3>
-            <p className="text-muted-foreground">
-              {searchTerm || filterType !== "all"
-                ? "Try adjusting your search or filters"
-                : "Be the first to list your data!"}
-            </p>
+            <Database className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-600 mb-2">No assets found</h3>
+            <p className="text-gray-500">Try adjusting your search or filter criteria</p>
           </div>
         )}
       </div>

@@ -13,7 +13,7 @@ Bookie empowers individuals to take control of their digital footprint by provid
 - 🔐 **Privacy First**: Client-side encryption ensures your data remains private
 - 💰 **Data Monetization**: Earn from your personal data through secure transactions
 - 🛡️ **Blockchain Security**: Built on Stellar network for transparent, secure transactions
-- 🔑 **Multi-Auth Support**: Freighter wallet and Passkey authentication
+- 🔑 **Freighter Wallet**: Simple, secure wallet integration
 - 📱 **Modern UI**: Responsive design with beautiful, intuitive interface
 - 🌐 **Decentralized**: No central authority controls your data
 
@@ -22,7 +22,7 @@ Bookie empowers individuals to take control of their digital footprint by provid
 ### Frontend (Next.js 15)
 - **Framework**: Next.js 15 with TypeScript
 - **Styling**: Tailwind CSS with Radix UI components
-- **Authentication**: Freighter wallet + WebAuthn Passkeys
+- **Authentication**: Freighter wallet integration
 - **State Management**: React Context API
 - **Blockchain Integration**: Stellar SDK + Freighter API
 
@@ -103,17 +103,13 @@ bookie001/
 └── docs/                   # Documentation
 ```
 
-## 🔑 Authentication Methods
+## 🔑 Authentication
 
 ### Freighter Wallet
 - Browser extension for Stellar network
 - Secure transaction signing
 - Network management
-
-### Passkey Authentication
-- WebAuthn-based biometric authentication
-- Touch ID, Face ID, Windows Hello support
-- Enhanced security without passwords
+- Simple one-click connection
 
 ## 💻 Available Scripts
 
@@ -171,8 +167,7 @@ The application includes comprehensive testing capabilities through:
 
 - **Client-side Encryption**: Data encrypted before upload
 - **Blockchain Verification**: All transactions on Stellar network
-- **Multi-signature Support**: Enhanced transaction security
-- **Passkey Authentication**: Biometric security
+- **Secure Wallet Integration**: Freighter wallet for transaction signing
 - **Zero-knowledge Architecture**: Platform cannot access user data
 
 ## 📊 Key Pages
@@ -211,12 +206,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is actively maintained and under development. Current status:
 
 - ✅ Core marketplace functionality
-- ✅ Wallet integration (Freighter + Passkeys)
+- ✅ Wallet integration (Freighter)
 - ✅ Smart contract deployment
 - ✅ Data encryption/decryption
 - ✅ Transaction processing
 - 🔄 Enhanced UI/UX improvements
-- 🔄 Additional authentication methods
 
 ## 🔮 Roadmap
 

@@ -2,8 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { WalletProvider } from "@/lib/wallet-context"
-import { AuthProvider } from "@/lib/auth-context"
+import { WalletProvider } from "@/lib/simple-wallet-context"
 import { Toaster } from "@/components/ui/toaster"
 import LayoutWrapper from "@/components/layout-wrapper"
 
@@ -26,12 +25,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <WalletProvider>
-          <AuthProvider>
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
-            <Toaster />
-          </AuthProvider>
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
+          <Toaster />
         </WalletProvider>
       </body>
     </html>

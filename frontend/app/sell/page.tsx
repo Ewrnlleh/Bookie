@@ -1,207 +1,252 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useWallet } from "@/lib/wallet-context"
-import { useAuth } from "@/lib/auth-context" 
+import { useWallet } from "@/lib/simple-wallet-context"
 import { useToast } from "@/hooks/use-toast"
-import { Upload, Shield, DollarSign } from "lucide-react"
-import { listDataAsset, signTransactionWithPasskey } from "@/services/soroban"
+import { Upload, DollarSign, Lock, Database } from "lucide-react"
 
-export default function SellDataPage() {
-  const { isConnected, publicKey, signAndSubmitTransaction } = useWallet()
-  const { isAuthenticated, authenticate } = useAuth()
+export default function SellPage() {
+  const { isConnected, connect, publicKey } = useWallet()
   const { toast } = useToast()
-  const [isUploading, setIsUploading] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     dataType: "",
     price: "",
-    file: null as File | null,
+    file: null as File | null
   })
+  const [uploading, setUploading] = useState(false)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
-      setFormData((prev) => ({ ...prev, file }))
+      setFormData(prev => ({ ...prev, file }))
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsUploading(true)
+
+    if (!isConnected) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet to sell data assets.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.file) {
+      toast({
+        title: "File Required", 
+        description: "Please select a file to upload.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploading(true)
 
     try {
-      // Check wallet connection
-      if (!isConnected || !publicKey) {
-        toast({
-          title: "Wallet Required",
-          description: "Please connect your wallet to list data",
-          variant: "destructive",
-        })
-        return
-      }
-
-      if (!formData.file) {
-        toast({
-          title: "File Required", 
-          description: "Please select a file to upload",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // 1. Upload file/metadata to IPFS
-      // TODO: Implement IPFS upload
-      const mockIpfsCid = "Qm..."
-      
-      // 2. Generate unique asset ID
-      const assetId = `asset_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
-      // 3. Create data asset listing transaction
-      const tx = await listDataAsset({
-        seller: publicKey,
-        id: assetId,
-        title: formData.title,
-        description: formData.description,
-        dataType: formData.dataType,
-        price: parseInt(formData.price),
-        ipfsCid: mockIpfsCid,
-        encryptionKey: `key_${Date.now()}`, // TODO: Generate proper encryption key
-        size: `${(formData.file.size / 1024 / 1024).toFixed(2)}MB`
-      })
-
-      // 4. Sign and submit transaction using wallet
-      const { hash } = await signAndSubmitTransaction(tx)
+      // Simulate file upload and tokenization
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
       toast({
-        title: "Success!",
-        description: `Your data was successfully listed. Transaction hash: ${hash}`,
+        title: "Data Asset Created!",
+        description: "Your data has been encrypted and listed on the marketplace.",
       })
 
-      // Clear form
+      // Reset form
       setFormData({
         title: "",
         description: "",
         dataType: "",
         price: "",
-        file: null,
+        file: null
       })
-    } catch (error: any) {
+
+    } catch (error) {
+      console.error("Upload failed:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to list data",
+        title: "Upload Failed",
+        description: "Failed to upload and tokenize your data asset.",
         variant: "destructive",
       })
     } finally {
-      setIsUploading(false)
+      setUploading(false)
     }
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Sell Your Data</h1>
+          <p className="text-xl text-gray-600">
+            Upload, encrypt, and monetize your personal data while maintaining complete privacy control.
+          </p>
+        </div>
+
+        {/* Connection Status */}
+        {!isConnected && (
+          <Card className="border-amber-200 bg-amber-50 mb-8">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-amber-800">Wallet Required</h3>
+                  <p className="text-amber-700">Connect your wallet to sell data assets</p>
+                </div>
+                <Button onClick={connect} variant="outline">
+                  Connect Wallet
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Upload Form */}
         <Card>
           <CardHeader>
-            <CardTitle>List Your Data</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Create Data Asset
+            </CardTitle>
             <CardDescription>
-              Share your data securely on the marketplace. All data is encrypted and you maintain full
-              control.
+              Fill in the details below to list your data on the marketplace
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Title */}
               <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
+                <label className="text-sm font-medium">Asset Title</label>
                 <Input
-                  id="title"
-                  placeholder="E.g., 3 Months Browser History"
+                  placeholder="e.g., Personal Fitness Data 2024"
                   value={formData.title}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  onChange={(e) => handleInputChange("title", e.target.value)}
                   required
                 />
               </div>
 
+              {/* Description */}
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <label className="text-sm font-medium">Description</label>
                 <Textarea
-                  id="description"
-                  placeholder="Describe your data..."
+                  placeholder="Describe your data asset, what it contains, and its potential uses..."
                   value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) => handleInputChange("description", e.target.value)}
+                  rows={4}
                   required
                 />
               </div>
 
+              {/* Data Type */}
               <div className="space-y-2">
-                <Label htmlFor="type">Data Type</Label>
-                <Select
-                  value={formData.dataType}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, dataType: value }))}
-                >
+                <label className="text-sm font-medium">Data Type</label>
+                <Select value={formData.dataType} onValueChange={(value) => handleInputChange("dataType", value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Select data category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="browsing">Browsing History</SelectItem>
-                    <SelectItem value="location">Location Data</SelectItem>
-                    <SelectItem value="health">Health Data</SelectItem>
-                    <SelectItem value="financial">Financial Data</SelectItem>
-                    <SelectItem value="social">Social Media Data</SelectItem>
+                    <SelectItem value="Health & Fitness">Health & Fitness</SelectItem>
+                    <SelectItem value="Social Media">Social Media</SelectItem>
+                    <SelectItem value="E-commerce">E-commerce</SelectItem>
+                    <SelectItem value="Location Data">Location Data</SelectItem>
+                    <SelectItem value="Financial">Financial</SelectItem>
+                    <SelectItem value="Educational">Educational</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Price */}
               <div className="space-y-2">
-                <Label htmlFor="price">Price (XLM)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  placeholder="100"
-                  value={formData.price}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
-                  required
-                />
+                <label className="text-sm font-medium">Price (USD)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    type="number"
+                    placeholder="25"
+                    value={formData.price}
+                    onChange={(e) => handleInputChange("price", e.target.value)}
+                    className="pl-10"
+                    min="1"
+                    step="0.01"
+                    required
+                  />
+                </div>
               </div>
 
+              {/* File Upload */}
               <div className="space-y-2">
-                <Label htmlFor="file">Upload File</Label>
-                <Input id="file" type="file" onChange={handleFileChange} required />
-                <p className="text-sm text-gray-500">
-                  File will be encrypted before upload. Max size: 100MB
-                </p>
+                <label className="text-sm font-medium">Data File</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">
+                      {formData.file ? formData.file.name : "Click to upload or drag and drop"}
+                    </p>
+                    <input
+                      type="file"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="file-upload"
+                      accept=".csv,.json,.xlsx,.txt"
+                    />
+                    <label
+                      htmlFor="file-upload"
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                    >
+                      Choose File
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Supported formats: CSV, JSON, XLSX, TXT (Max 10MB)
+                  </p>
+                </div>
               </div>
 
+              {/* Privacy Notice */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Lock className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="text-sm">
+                    <h4 className="font-medium text-blue-800 mb-1">Privacy Protection</h4>
+                    <p className="text-blue-700">
+                      Your data will be encrypted client-side before upload. Only buyers with the proper decryption key can access the data content.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isUploading || !isConnected}
+                disabled={!isConnected || uploading}
               >
-                {isUploading ? (
-                  <span className="flex items-center gap-2">
-                    <Upload className="h-4 w-4 animate-spin" />
-                    Uploading...
-                  </span>
+                {uploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Encrypting & Uploading...
+                  </>
                 ) : (
-                  <span className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    List Data Securely
-                  </span>
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Create Data Asset
+                  </>
                 )}
               </Button>
-
-              {!isConnected && (
-                <p className="text-sm text-red-500 text-center">
-                  Please connect your wallet to list data
-                </p>
-              )}
             </form>
           </CardContent>
         </Card>

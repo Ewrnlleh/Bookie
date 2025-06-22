@@ -5,7 +5,7 @@ import Image from "next/image"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { WalletConnect } from "@/components/wallet-connect"
+import { SimpleWalletConnect } from "@/components/simple-wallet-connect"
 import { Menu, X } from "lucide-react"
 import { useIsMobile } from "@/hooks/use-mobile"
 
@@ -17,7 +17,6 @@ export default function Header() {
     { href: "/marketplace", label: "Marketplace" },
     { href: "/sell", label: "Sell Data" },
     { href: "/vault", label: "My Vault" },
-    { href: "/wallet-test", label: "Wallet Test" },
   ]
 
   const NavLinks = ({ mobile = false, onLinkClick }: { mobile?: boolean; onLinkClick?: () => void }) => (
@@ -64,12 +63,12 @@ export default function Header() {
           <div className="flex items-center gap-4 sm:gap-6 ml-8">
             {/* Wallet Connect - Always visible but responsive */}
             <div className="hidden sm:block">
-              <WalletConnect />
+              <SimpleWalletConnect />
             </div>
             
             {/* Mobile Wallet Connect (simplified) */}
             <div className="block sm:hidden">
-              <WalletConnect />
+              <SimpleWalletConnect />
             </div>
 
             {/* Mobile Menu Button */}
@@ -111,7 +110,7 @@ export default function Header() {
                   <div className="border-t border-gray-100 pt-6">
                     <div className="px-4">
                       <p className="text-sm font-medium text-gray-700 mb-3">Wallet Connection</p>
-                      <WalletConnect />
+                      <SimpleWalletConnect />
                     </div>
                   </div>
                 </div>

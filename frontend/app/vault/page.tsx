@@ -4,396 +4,264 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useWallet } from "@/lib/wallet-context"
-import { Database, Download, Eye, Trash2, Calendar, DollarSign } from "lucide-react"
-import { formatPublicKey } from "@/lib/utils"
-import { getUserPurchases } from "@/services/soroban"
+import { useWallet } from "@/lib/simple-wallet-context"
+import { useToast } from "@/hooks/use-toast"
+import { Vault, Download, Eye, DollarSign, Calendar, Database } from "lucide-react"
 
-interface VaultItem {
-  id: string
-  title: string
-  description: string
-  dataType: string
-  price?: number
-  status: "listed" | "sold" | "purchased"
-  date: string
-  size: string
-  earnings?: number
-  txHash?: string
-}
+// Mock data for user's assets
+const mockOwnedAssets = [
+  {
+    id: "owned-1",
+    title: "My Fitness Journey 2024",
+    description: "Personal workout and health data",
+    dataType: "Health & Fitness",
+    price: 30,
+    status: "active",
+    purchases: 3,
+    earnings: 90,
+    listedDate: "2024-12-10"
+  }
+]
 
-// Mock data for items user has listed/sold
-const mockListedSoldItems: VaultItem[] = [
+const mockPurchasedAssets = [
   {
-    id: "1",
-    title: "My Browsing History - Q4 2023",
-    description: "Personal browsing data from October to December 2023",
-    dataType: "browsing",
-    price: 100,
-    status: "sold",
-    date: "2024-01-10",
-    size: "1.5 MB",
-    earnings: 97.5, // After 2.5% platform fee
-  },
-  {
-    id: "2", 
-    title: "Fitness Data - 2023",
-    description: "Complete year of fitness tracking data",
-    dataType: "fitness",
-    price: 250,
-    status: "listed",
-    date: "2024-01-08",
-    size: "3.2 MB",
-  },
+    id: "purchased-1", 
+    title: "E-commerce Behavior Dataset",
+    description: "Shopping patterns and preferences data",
+    dataType: "E-commerce",
+    price: 25,
+    purchaseDate: "2024-12-14",
+    seller: "GA9ZK...",
+    downloadUrl: "#"
+  }
 ]
 
 export default function VaultPage() {
-  const { isConnected, publicKey } = useWallet()
-  const [vaultItems, setVaultItems] = useState<VaultItem[]>([])
-  const [purchasedItems, setPurchasedItems] = useState<VaultItem[]>([])
-  const [refreshKey, setRefreshKey] = useState(0)
+  const { isConnected, connect, publicKey } = useWallet()
+  const { toast } = useToast()
+  const [activeTab, setActiveTab] = useState<"owned" | "purchased">("owned")
 
-  const loadVaultData = () => {
-    if (isConnected && publicKey) {
-      // Load user's actual purchases from localStorage
-      const userPurchases = getUserPurchases(publicKey)
-      const purchasedVaultItems = userPurchases.map(purchase => ({
-        id: purchase.id,
-        title: purchase.title,
-        description: purchase.description,
-        dataType: purchase.dataType,
-        price: purchase.price,
-        status: "purchased" as const,
-        date: purchase.purchaseDate,
-        size: purchase.size,
-        txHash: purchase.txHash
-      }))
-      setPurchasedItems(purchasedVaultItems)
-      
-      // Combine with mock listed/sold items
-      setVaultItems([...mockListedSoldItems, ...purchasedVaultItems])
-      
-      console.log('📦 Loaded vault items:', {
-        purchased: purchasedVaultItems.length,
-        total: mockListedSoldItems.length + purchasedVaultItems.length,
-        purchases: userPurchases
-      })
-    }
+  const handleDownload = (assetId: string) => {
+    toast({
+      title: "Download Started",
+      description: "Your purchased data asset is being prepared for download.",
+    })
+    // In a real app, this would decrypt and download the file
   }
 
-  useEffect(() => {
-    loadVaultData()
-  }, [isConnected, publicKey, refreshKey])
-
-  // Listen for localStorage changes (when purchases are added)
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key?.startsWith('bookie_purchases_')) {
-        console.log('🔄 Storage change detected, refreshing vault...')
-        loadVaultData()
-      }
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    
-    // Also listen for custom events from same window
-    const handleCustomRefresh = () => {
-      console.log('🔄 Custom refresh triggered')
-      setRefreshKey(prev => prev + 1)
-    }
-    window.addEventListener('vault-refresh', handleCustomRefresh)
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('vault-refresh', handleCustomRefresh)
-    }
-  }, [])
-
-  const manualRefresh = () => {
-    console.log('🔄 Manual refresh triggered')
-    setRefreshKey(prev => prev + 1)
-  }
-
-  const listedItems = vaultItems.filter((item) => item.status === "listed")
-  const soldItems = vaultItems.filter((item) => item.status === "sold")
-
-  const totalEarnings = soldItems.reduce((sum, item) => sum + (item.earnings || 0), 0)
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      listed: "bg-blue-100 text-blue-800",
-      sold: "bg-green-100 text-green-800",
-      purchased: "bg-purple-100 text-purple-800",
-    }
-    return colors[status as keyof typeof colors]
-  }
-
-  const getDataTypeColor = (type: string) => {
-    const colors = {
-      browsing: "bg-orange-100 text-orange-800",
-      fitness: "bg-emerald-100 text-emerald-800",
-      shopping: "bg-pink-100 text-pink-800",
-      location: "bg-purple-100 text-purple-800",
-      social: "bg-yellow-100 text-yellow-800",
-    }
-    return colors[type as keyof typeof colors] || "bg-gray-100 text-gray-800"
-  }
-
-  if (!isConnected) {
-    return (
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">My Bookie Vault</h1>
-          <p className="text-gray-600 mb-8">Connect your wallet to view and manage your data assets.</p>
-          <Card className="p-8">
-            <CardContent className="text-center">
-              <Database className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Wallet Connection Required</h3>
-              <p className="text-gray-600">Your data vault is secured by your wallet connection.</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    )
+  const handleViewDetails = (assetId: string) => {
+    toast({
+      title: "Asset Details",
+      description: "Detailed analytics and performance metrics coming soon.",
+    })
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-gray-900">My Bookie Vault</h1>
-          <Button onClick={manualRefresh} variant="outline" size="sm">
-            🔄 Refresh
-          </Button>
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">My Vault</h1>
+          <p className="text-xl text-gray-600">
+            Manage your data assets and track your earnings from the marketplace.
+          </p>
         </div>
-        <p className="text-gray-600 mb-4">Manage your listed data, track earnings, and access purchased data sets.</p>
-        <div className="text-sm text-gray-500">
-          Connected: {formatPublicKey(publicKey)}
-        </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid md:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-blue-600" />
-              <div>
-                <div className="text-2xl font-bold">{listedItems.length}</div>
-                <div className="text-sm text-gray-600">Listed</div>
+        {/* Connection Status */}
+        {!isConnected && (
+          <Card className="border-amber-200 bg-amber-50 mb-8">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-amber-800">Wallet Required</h3>
+                  <p className="text-amber-700">Connect your wallet to access your vault</p>
+                </div>
+                <Button onClick={connect} variant="outline">
+                  Connect Wallet
+                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-600" />
-              <div>
-                <div className="text-2xl font-bold">{soldItems.length}</div>
-                <div className="text-sm text-gray-600">Sold</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Download className="w-5 h-5 text-purple-600" />
-              <div>
-                <div className="text-2xl font-bold">{purchasedItems.length}</div>
-                <div className="text-sm text-gray-600">Purchased</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-600" />
-              <div>
-                <div className="text-2xl font-bold">{totalEarnings.toFixed(1)}</div>
-                <div className="text-sm text-gray-600">XLM Earned</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        )}
 
-      <Tabs defaultValue="listed" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="listed">Listed Data ({listedItems.length})</TabsTrigger>
-          <TabsTrigger value="sold">Sold Data ({soldItems.length})</TabsTrigger>
-          <TabsTrigger value="purchased">Purchased Data ({purchasedItems.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="listed" className="space-y-4">
-          {listedItems.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Database className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Listed Data</h3>
-                <p className="text-gray-600 mb-4">You haven't listed any data for sale yet.</p>
-                <Button className="bg-blue-600 hover:bg-blue-700">List Your First Data Set</Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {listedItems.map((item) => (
-                <Card key={item.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{item.title}</CardTitle>
-                        <div className="flex gap-2 mt-2">
-                          <Badge className={getStatusColor(item.status)}>
-                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                          </Badge>
-                          <Badge className={getDataTypeColor(item.dataType)}>{item.dataType}</Badge>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold text-blue-600">{item.price} XLM</div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="mb-4">{item.description}</CardDescription>
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(item.date).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Database className="w-4 h-4" />
-                        {item.size}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="sold" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            {soldItems.map((item) => (
-              <Card key={item.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{item.title}</CardTitle>
-                      <div className="flex gap-2 mt-2">
-                        <Badge className={getStatusColor(item.status)}>Sold</Badge>
-                        <Badge className={getDataTypeColor(item.dataType)}>{item.dataType}</Badge>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-green-600">+{item.earnings} XLM</div>
-                      <div className="text-sm text-gray-500">Earned</div>
-                    </div>
-                  </div>
+        {isConnected && (
+          <>
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="mb-4">{item.description}</CardDescription>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      Sold: {new Date(item.date).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Database className="w-4 h-4" />
-                      {item.size}
-                    </div>
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">$90.00</div>
+                  <p className="text-xs text-muted-foreground">+15% from last month</p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="purchased" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            {purchasedItems.map((item) => (
-              <Card key={item.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{item.title}</CardTitle>
-                      <div className="flex gap-2 mt-2">
-                        <Badge className={getStatusColor(item.status)}>Purchased</Badge>
-                        <Badge className={getDataTypeColor(item.dataType)}>{item.dataType}</Badge>
-                      </div>
-                    </div>
-                  </div>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Assets Listed</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="mb-4">{item.description}</CardDescription>
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      Purchased: {new Date(item.date).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Database className="w-4 h-4" />
-                      {item.size}
-                    </div>
-                    {item.price && (
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4" />
-                        {item.price} XLM
+                  <div className="text-2xl font-bold">1</div>
+                  <p className="text-xs text-muted-foreground">Active on marketplace</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Purchased Assets</CardTitle>
+                  <Vault className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">1</div>
+                  <p className="text-xs text-muted-foreground">Available for download</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab("owned")}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === "owned"
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  My Listed Assets
+                </button>
+                <button
+                  onClick={() => setActiveTab("purchased")}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === "purchased"
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  Purchased Assets
+                </button>
+              </nav>
+            </div>
+
+            {/* Content based on active tab */}
+            {activeTab === "owned" && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold">Your Listed Data Assets</h2>
+                {mockOwnedAssets.map((asset) => (
+                  <Card key={asset.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{asset.title}</CardTitle>
+                          <CardDescription>{asset.description}</CardDescription>
+                        </div>
+                        <Badge variant="secondary">{asset.dataType}</Badge>
                       </div>
-                    )}
-                  </div>
-                  {item.txHash && (
-                    <div className="mb-4">
-                      <div className="text-sm text-gray-600 mb-2">Transaction Hash:</div>
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all flex-1">
-                          {formatPublicKey(item.txHash)}
-                        </code>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500">Price</p>
+                          <p className="font-semibold text-green-600">${asset.price}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Purchases</p>
+                          <p className="font-semibold">{asset.purchases}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Total Earnings</p>
+                          <p className="font-semibold text-green-600">${asset.earnings}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Listed Date</p>
+                          <p className="font-semibold">{asset.listedDate}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-4">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            if (item.txHash && !item.txHash.startsWith('dev_')) {
-                              window.open(`https://stellar.expert/explorer/testnet/tx/${item.txHash}`, '_blank')
-                            }
-                          }}
-                          disabled={item.txHash?.startsWith('dev_')}
+                          onClick={() => handleViewDetails(asset.id)}
                         >
-                          {item.txHash?.startsWith('dev_') ? 'Mock Tx' : 'View Tx'}
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
                         </Button>
+                        <Badge variant={asset.status === "active" ? "default" : "secondary"}>
+                          {asset.status}
+                        </Badge>
                       </div>
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Data
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Preview
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "purchased" && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold">Your Purchased Assets</h2>
+                {mockPurchasedAssets.map((asset) => (
+                  <Card key={asset.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{asset.title}</CardTitle>
+                          <CardDescription>{asset.description}</CardDescription>
+                        </div>
+                        <Badge variant="secondary">{asset.dataType}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+                        <div>
+                          <p className="text-gray-500">Price Paid</p>
+                          <p className="font-semibold">${asset.price}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Purchase Date</p>
+                          <p className="font-semibold">{asset.purchaseDate}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Seller</p>
+                          <p className="font-semibold">{asset.seller}</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleDownload(asset.id)}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Data
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty States */}
+            {activeTab === "owned" && mockOwnedAssets.length === 0 && (
+              <div className="text-center py-12">
+                <Database className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">No listed assets</h3>
+                <p className="text-gray-500">Start selling your data to see your assets here</p>
+              </div>
+            )}
+
+            {activeTab === "purchased" && mockPurchasedAssets.length === 0 && (
+              <div className="text-center py-12">
+                <Vault className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">No purchased assets</h3>
+                <p className="text-gray-500">Visit the marketplace to purchase data assets</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
